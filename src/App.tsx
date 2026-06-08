@@ -3130,11 +3130,11 @@ export default function App() {
                       return (
                         <div 
                           key={idx} 
-                          className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden flex flex-col transition-all hover:scale-[1.01] hover:shadow-md ${!quote.isAvailable ? 'border-slate-200' : ''}`}
+                          className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden flex flex-col transition-all hover:scale-[1.01] hover:shadow-md ${!quote.isAvailable ? 'border-slate-200' : compStyle.borderClass}`}
                           style={quote.isAvailable ? compStyle.borderStyle : {}}
                         >
                           <div 
-                            className={`${!quote.isAvailable ? 'bg-slate-400' : ''} p-4 text-white flex items-center justify-between`}
+                            className={`${!quote.isAvailable ? 'bg-slate-400' : compStyle.bgClass} p-4 text-white flex items-center justify-between`}
                             style={quote.isAvailable ? compStyle.bgStyle : {}}
                           >
                             <div className="flex items-center gap-2">
@@ -3155,7 +3155,7 @@ export default function App() {
                                   {showRate && (
                                     <div className="flex justify-between items-end pb-3 border-b border-slate-100">
                                       <span className="text-slate-400 text-xs font-bold uppercase">Tỉ lệ phí</span>
-                                      <span className="text-xl font-black" style={compStyle.textStyle}>{quote.displayRate}%</span>
+                                      <span className={`text-xl font-black ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.displayRate}%</span>
                                     </div>
                                   )}
                                   {currentUser && showCommission && (
