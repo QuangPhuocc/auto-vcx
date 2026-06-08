@@ -2141,12 +2141,20 @@ export default function App() {
 
     // Evaluator helper returning full rate info
     const getRateInfo = (comp: string, isEVCar = isEV, model = evModel) => {
-      const match = ratesData.find(r => 
+      let match = ratesData.find(r => 
         r.companyId === comp && 
         r.carType === carType && 
         r.isEV === isEVCar && 
         (!isEVCar || !r.evModel || r.evModel === model)
       );
+      if (!match) {
+        match = ratesData.find(r => 
+          r.companyId === comp && 
+          r.carType === dbCarType && 
+          r.isEV === isEVCar && 
+          (!isEVCar || !r.evModel || r.evModel === model)
+        );
+      }
       if (!match) return null;
       const subRule = match.rules.find(sr => sr.maxVal === null || carValue < sr.maxVal);
       if (!subRule) return null;
