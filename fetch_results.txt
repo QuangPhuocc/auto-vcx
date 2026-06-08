@@ -1,0 +1,2 @@
+node_modules/protobufjs/src/root.js:Root.prototype.fetch = util.fetch;
+node_modules/formdata-polyfill/FormData.js:    global.fetch = function (input, init) {
