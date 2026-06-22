@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 server/data/db.json
+server/data/db.sqlite
+server/data/*.sqlite
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal
