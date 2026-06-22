@@ -61,6 +61,9 @@ export const BANK_OPTIONS = [
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy for Nginx reverse proxy and express-rate-limit
+app.set('trust proxy', 1);
+
 // Helmet security headers
 app.use(helmet({
   contentSecurityPolicy: false,
