@@ -3521,7 +3521,7 @@ export default function App() {
                       return (
                         <div 
                           key={idx} 
-                          className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden flex flex-col transition-all hover:scale-[1.01] hover:shadow-md ${!quote.isAvailable ? 'border-slate-200' : compStyle.borderClass}`}
+                          className={`bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col transition-all hover:scale-[1.01] hover:shadow-md ${!quote.isAvailable ? 'border-slate-200' : compStyle.borderClass}`}
                           style={quote.isAvailable ? compStyle.borderStyle : {}}
                         >
                           <div 
@@ -3596,7 +3596,7 @@ export default function App() {
                                               const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                               setCustomBasePremiums(prev => ({...prev, [quote.company.id]: rawVal}));
                                             }}
-                                            className="w-full px-2 py-0.5 text-xs rounded border border-blue-300 bg-blue-50 font-bold outline-none"
+                                            className="w-full px-2 py-0.5 text-xs rounded border border-rose-300 bg-rose-50 font-bold outline-none"
                                           />
                                         </div>
                                       )}
@@ -3610,7 +3610,7 @@ export default function App() {
                                               const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                               setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
                                             }}
-                                            className="w-full px-2 py-0.5 text-xs rounded border border-blue-300 bg-blue-50 font-black outline-none"
+                                            className="w-full px-2 py-0.5 text-xs rounded border border-rose-300 bg-rose-50 font-bold outline-none"
                                           />
                                         </div>
                                       )}
@@ -3630,7 +3630,7 @@ export default function App() {
                                           {showDiscountedPremium && (
                                             <>
                                               <span className="text-slate-400 text-[10px] font-bold uppercase block mb-0.5">Phí giảm còn</span>
-                                              <div className="text-2xl font-black tracking-tight" style={compStyle.textStyle}>
+                                              <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
                                                 {formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
                                               </div>
                                             </>
@@ -3640,7 +3640,7 @@ export default function App() {
                                         showBasePremium && (
                                           <>
                                             <span className="text-slate-400 text-[10px] font-bold uppercase block mb-0.5">Giá bảo hiểm</span>
-                                            <div className="text-2xl font-black tracking-tight" style={compStyle.textStyle}>
+                                            <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
                                               {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
                                             </div>
                                           </>
@@ -3649,11 +3649,7 @@ export default function App() {
                                     </>
                                   )}
                                 </div>
-                                {quote.isMinPremiumApplied && (
-                                  <div className="text-[10px] text-amber-600 mt-1 font-bold">
-                                    * Áp dụng phí tối thiểu ({formatCurrency(quote.minPremium!)})
-                                  </div>
-                                )}
+
                               </div>
                             </div>
                           )}
@@ -3662,164 +3658,245 @@ export default function App() {
                     );
                   })}
                   </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                ) : viewMode === 'table' ? (() => {
+                  const totalColumns = 2 + (showBasePremium ? 1 : 0) + (showDiscountedPremium ? 1 : 0) + (currentUser && showCommission ? (selectedBank !== 'Không vay ngân hàng' ? 3 : 1) : 0);
+                  return (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
+                            <th className="p-4">Hãng Bảo Hiểm</th>
+                            {showBasePremium && <th className="p-4 text-right">Giá bảo hiểm</th>}
+                            {currentUser && showCommission && (
+                              <>
+                                <th className="p-4 text-right">Hoa hồng</th>
+                                {selectedBank !== 'Không vay ngân hàng' && (
+                                  <>
+                                    <th className="p-4 text-right">Chuyên thu</th>
+                                    <th className="p-4 text-right">Thực nhận</th>
+                                  </>
+                                )}
+                              </>
+                            )}
+                            {showDiscountedPremium && <th className="p-4 text-right">Giảm còn</th>}
+                            <th className="p-4 text-right">Mức khấu trừ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                          {displayQuotes.filter(q => q.isAvailable).map((quote, idx) => {
+                            const compStyle = getCompanyStyles(quote.company);
+                            return (
+                              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="p-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="font-extrabold text-slate-800">{quote.company.name}</div>
+                                  </div>
+                                </td>
+                                
+                                {showBasePremium && (
+                                  <td className="p-4 text-right font-bold text-slate-800 text-sm">
+                                    {currentUser && isEditMode ? (
+                                      <input 
+                                        type="text"
+                                        value={new Intl.NumberFormat('vi-VN').format(customBasePremiums[quote.company.id] ?? quote.basePremium)}
+                                        onChange={(e) => {
+                                          const rawVal = Number(e.target.value.replace(/\D/g, ''));
+                                          setCustomBasePremiums(prev => ({...prev, [quote.company.id]: rawVal}));
+                                        }}
+                                        className="w-32 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                      />
+                                    ) : (
+                                      formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)
+                                    )}
+                                  </td>
+                                )}
+
+                                {currentUser && showCommission && (
+                                  <>
+                                    <td className="p-4 text-right font-bold text-slate-700">
+                                      {(quote.commissionRate * 100).toFixed(1)}%
+                                    </td>
+                                    {selectedBank !== 'Không vay ngân hàng' && (
+                                      <>
+                                        <td className="p-4 text-right font-bold text-slate-700">
+                                          {(quote.bankReferralRate * 100).toFixed(1)}%
+                                        </td>
+                                        <td className="p-4 text-right font-bold text-rose-600">
+                                          {(quote.netCommissionRate * 100).toFixed(1)}%
+                                        </td>
+                                      </>
+                                    )}
+                                  </>
+                                )}
+                                
+                                {showDiscountedPremium && (
+                                  <td className="p-4 text-right font-bold text-sm" style={compStyle.textStyle}>
+                                    {currentUser ? (
+                                      isEditMode ? (
+                                        <div className="flex flex-col items-end">
+                                          <input 
+                                            type="text"
+                                            value={new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
+                                            onChange={(e) => {
+                                              const rawVal = Number(e.target.value.replace(/\D/g, ''));
+                                              setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
+                                            }}
+                                            className="w-32 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                          />
+                                        </div>
+                                      ) : (
+                                        formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))
+                                      )
+                                    ) : (
+                                      <span className="text-slate-400 text-xs font-semibold">Chỉ đại lý xem</span>
+                                    )}
+                                  </td>
+                                )}
+                                
+                                <td className="p-4 text-right text-slate-500 font-bold">
+                                  {currentUser && isEditMode ? (
+                                    <div className="flex items-center justify-end gap-1">
+                                      <input 
+                                        type="text"
+                                        value={new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}
+                                        onChange={(e) => {
+                                          const rawVal = Number(e.target.value.replace(/\D/g, ''));
+                                          setCustomDeductibles(prev => ({...prev, [quote.company.id]: rawVal}));
+                                        }}
+                                        className="w-28 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                      />
+                                      <span className="text-[10px] text-slate-400 font-bold">đ</span>
+                                    </div>
+                                  ) : (
+                                    `${new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ`
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+
+                          {/* Quyền lợi Row */}
+                          <tr className="bg-rose-50/10 border-none">
+                            <td colSpan={totalColumns} className="p-6 border-t border-slate-200">
+                              <div className="space-y-4 text-rose-900">
+                                <h4 className="font-extrabold text-sm lg:text-base flex items-center gap-2 text-rose-700">
+                                  <Info size={16} className="text-rose-500" />
+                                  Tóm tắt quyền lợi bảo hiểm vật chất:
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs lg:text-sm font-semibold">
+                                  <div className="space-y-1.5">
+                                    <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
+                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                      <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
+                                      <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
+                                      <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
+                                    </ul>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
+                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                      {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
+                                      <li>Không khấu hao phụ tùng thay mới</li>
+                                      <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Contact Row */}
+                          {currentUser && (
+                            <tr className="bg-white border-none">
+                              <td colSpan={totalColumns} className="p-4 border-t border-slate-200">
+                                <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed">
+                                  <span className="text-red-600">Liên hệ Zalo: </span>
+                                  <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
+                                  {currentUser.phone ? (
+                                    <>
+                                      <span className="text-slate-400"> - </span>
+                                      <span className="text-red-600">{currentUser.phone}</span>
+                                    </>
+                                  ) : ''}
+                                </p>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })() : (
+                  /* viewMode === 'agent' */
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
                     <table className="w-full text-left border-collapse table-fixed">
                       <colgroup>
-                        {!(currentUser && showCommission) ? (
-                          <>
-                            <col className="w-[30%]" />
-                            <col className="w-[25%]" />
-                            <col className="w-[25%]" />
-                            <col className="w-[20%]" />
-                          </>
-                        ) : selectedBank === 'Không vay ngân hàng' ? (
-                          <>
-                            <col className="w-[25%]" />
-                            <col className="w-[20%]" />
-                            <col className="w-[15%]" />
-                            <col className="w-[25%]" />
-                            <col className="w-[15%]" />
-                          </>
-                        ) : (
-                          <>
-                            <col className="w-[22%]" />
-                            <col className="w-[15%]" />
-                            <col className="w-[11%]" />
-                            <col className="w-[11%]" />
-                            <col className="w-[11%]" />
-                            <col className="w-[18%]" />
-                            <col className="w-[12%]" />
-                          </>
-                        )}
+                        <col className="w-[35%]" />
+                        <col className="w-[20%]" />
+                        <col className="w-[20%]" />
+                        <col className="w-[25%]" />
                       </colgroup>
-                      <thead>
+                      <tbody>
+                        {/* Title Row - Centered inside colSpan 3 */}
+                        <tr className="border-none">
+                          <td colSpan={3} className="p-4 border-none text-center">
+                            <div className="text-center mb-6 pb-4 border-b border-slate-200">
+                              <h2 className="text-xl font-black text-rose-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
+                              <h3 className="text-sm font-bold text-slate-500 tracking-normal normal-case">
+                                {titleText}
+                              </h3>
+                            </div>
+                          </td>
+                          <td className="border-none"></td>
+                        </tr>
+
+                        {/* Headers */}
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
                           <th className="p-4">Hãng Bảo Hiểm</th>
-                          <th className="p-4 text-right">{showBasePremium ? "Giá bảo hiểm" : ""}</th>
-                          {currentUser && showCommission && (
-                            <>
-                              <th className="p-4 text-right">Hoa hồng</th>
-                              {selectedBank !== 'Không vay ngân hàng' && (
-                                <>
-                                  <th className="p-4 text-right">Chuyên thu</th>
-                                  <th className="p-4 text-right">Thực nhận</th>
-                                </>
-                              )}
-                            </>
-                          )}
-                          <th className="p-4 text-right">{showDiscountedPremium ? "Giảm còn" : ""}</th>
+                          <th className="p-4 text-right">Giá bảo hiểm</th>
                           <th className="p-4 text-right">Mức khấu trừ</th>
+                          <th className="p-4 text-right bg-rose-50/20 border-l border-rose-100">Giảm còn</th>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+
+                        {/* Data Rows */}
                         {displayQuotes.filter(q => q.isAvailable).map((quote, idx) => {
                           const compStyle = getCompanyStyles(quote.company);
                           return (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
                               <td className="p-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="font-extrabold text-slate-800">{quote.company.name}</div>
-                                </div>
+                                <div className="font-extrabold text-slate-800">{quote.company.name}</div>
                               </td>
                               
-                              <td className="p-4 text-right font-bold">
-                                {showBasePremium ? (
-                                  currentUser && isEditMode ? (
-                                    <input 
-                                      type="text"
-                                      value={new Intl.NumberFormat('vi-VN').format(customBasePremiums[quote.company.id] ?? quote.basePremium)}
-                                      onChange={(e) => {
-                                        const rawVal = Number(e.target.value.replace(/\D/g, ''));
-                                        setCustomBasePremiums(prev => ({...prev, [quote.company.id]: rawVal}));
-                                      }}
-                                      className="w-32 text-right px-2 py-1 rounded border border-blue-300 bg-blue-50 font-bold outline-none"
-                                    />
-                                  ) : (
-                                    formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)
-                                  )
-                                ) : (
-                                  ""
-                                )}
+                              <td className="p-4 text-right font-bold text-slate-800 text-sm">
+                                {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
                               </td>
 
-                              {currentUser && showCommission && (
-                                <>
-                                  <td className="p-4 text-right font-bold text-slate-700">
-                                    {(quote.commissionRate * 100).toFixed(1)}%
-                                  </td>
-                                  {selectedBank !== 'Không vay ngân hàng' && (
-                                    <>
-                                      <td className="p-4 text-right font-bold text-slate-700">
-                                        {(quote.bankReferralRate * 100).toFixed(1)}%
-                                      </td>
-                                      <td className="p-4 text-right font-black text-blue-600">
-                                        {(quote.netCommissionRate * 100).toFixed(1)}%
-                                      </td>
-                                    </>
-                                  )}
-                                </>
-                              )}
-                              
-                              <td className="p-4 text-right font-black" style={compStyle.textStyle}>
-                                {currentUser && showDiscountedPremium ? (
-                                  isEditMode ? (
-                                    <div className="flex flex-col items-end">
-                                      <input 
-                                        type="text"
-                                        value={new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
-                                        onChange={(e) => {
-                                          const rawVal = Number(e.target.value.replace(/\D/g, ''));
-                                          setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
-                                        }}
-                                        className="w-32 text-right px-2 py-1 rounded border border-blue-300 bg-blue-50 font-black outline-none"
-                                      />
-                                      {quote.isMinPremiumApplied && <span className="text-[10px] text-amber-600 font-bold mt-1">* Phí tối thiểu</span>}
-                                    </div>
-                                  ) : (
-                                    <>
-                                      {formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
-                                      {quote.isMinPremiumApplied && <div className="text-[10px] text-amber-600 font-bold mt-0.5">* Phí tối thiểu</div>}
-                                    </>
-                                  )
-                                ) : (
-                                  currentUser ? "" : <span className="text-slate-400 text-xs font-semibold">Chỉ đại lý xem</span>
-                                )}
+                              <td className="p-4 text-right text-slate-500 font-bold text-sm">
+                                {new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ
                               </td>
-                              
-                              <td className="p-4 text-right text-slate-500 font-bold">
-                                {currentUser && isEditMode ? (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <input 
-                                      type="text"
-                                      value={new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}
-                                      onChange={(e) => {
-                                        const rawVal = Number(e.target.value.replace(/\D/g, ''));
-                                        setCustomDeductibles(prev => ({...prev, [quote.company.id]: rawVal}));
-                                      }}
-                                      className="w-28 text-right px-2 py-1 rounded border border-blue-300 bg-blue-50 font-bold outline-none"
-                                    />
-                                    <span className="text-[10px] text-slate-400 font-bold">đ</span>
-                                  </div>
+
+                              <td className="p-4 text-right font-bold text-sm bg-rose-50/10 border-l border-rose-50/50" style={compStyle.textStyle}>
+                                {currentUser && showDiscountedPremium ? (
+                                  formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))
                                 ) : (
-                                  `${new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ`
+                                  <span className="text-slate-400 text-xs font-semibold">Chỉ đại lý xem</span>
                                 )}
                               </td>
                             </tr>
                           );
                         })}
-                        
-                        {/* Summary / Terms details row */}
-                        <tr className="bg-blue-50/20">
-                          <td colSpan={4} className="p-6">
-                            <div className="max-w-4xl mx-auto space-y-4 text-blue-900">
-                              <h4 className="font-extrabold text-base flex items-center gap-2">
-                                <Info size={18} />
+
+                        {/* Quyền lợi Row - Centered inside colSpan 3 */}
+                        <tr className="border-none">
+                          <td colSpan={3} className="p-4 border-none">
+                            <div className="space-y-4 text-rose-900 bg-rose-50/20 border border-slate-100 rounded-2xl p-6">
+                              <h4 className="font-extrabold text-base flex items-center gap-2 text-rose-700">
+                                <Info size={18} className="text-rose-500" />
                                 Tóm tắt quyền lợi bảo hiểm vật chất:
                               </h4>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm font-semibold">
                                 <div className="space-y-2">
-                                  <p className="font-black text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
+                                  <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
                                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                                     <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
                                     <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
@@ -3827,7 +3904,7 @@ export default function App() {
                                   </ul>
                                 </div>
                                 <div className="space-y-2">
-                                  <p className="font-black text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
+                                  <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
                                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                                     {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
                                     <li>Không khấu hao phụ tùng thay mới</li>
@@ -3837,25 +3914,78 @@ export default function App() {
                               </div>
                             </div>
                           </td>
+                          <td className="border-none"></td>
                         </tr>
+
+                        {/* Contact Row - Centered inside colSpan 3 */}
+                        {currentUser && (
+                          <tr className="border-none">
+                            <td colSpan={3} className="p-4 border-none">
+                              <div className="p-4 bg-white rounded-2xl border border-rose-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all">
+                                <p className="text-center text-base md:text-lg font-black tracking-wide leading-relaxed">
+                                  <span className="text-red-600">Liên hệ Zalo: </span>
+                                  <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
+                                  {currentUser.phone ? (
+                                    <>
+                                      <span className="text-slate-400"> - </span>
+                                      <span className="text-red-600">{currentUser.phone}</span>
+                                    </>
+                                  ) : ''}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="border-none"></td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
                 )}
 
-                {/* Agent Contact Block */}
-                {currentUser && (
-                  <div className="mt-6 p-4 bg-white rounded-2xl border-2 border-blue-600 flex items-center justify-center shadow-sm hover:shadow-md transition-all w-full">
-                    <p className="text-center text-base md:text-lg font-black tracking-wide leading-relaxed">
-                      <span className="text-blue-600">Liên hệ Zalo: </span>
-                      <span className="text-red-600">{currentUser.name.toUpperCase()}</span>
-                      {currentUser.phone ? (
-                        <>
-                          <span className="text-slate-400"> - </span>
-                          <span className="text-blue-600">{currentUser.phone}</span>
-                        </>
-                      ) : ''}
-                    </p>
+                {/* Combined Benefits Summary & Zalo Contact Block (for grid view) */}
+                {viewMode === 'grid' && (
+                  <div className="mt-6 space-y-0 rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+                    {/* Benefits Summary Section */}
+                    <div className="p-6 bg-rose-50/20 border-b border-slate-100 space-y-4">
+                      <h4 className="font-extrabold text-sm lg:text-base flex items-center gap-2 text-rose-700">
+                        <Info size={16} className="text-rose-500" />
+                        Tóm tắt quyền lợi bảo hiểm vật chất:
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs lg:text-sm font-semibold">
+                        <div className="space-y-1.5">
+                          <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
+                          <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                            <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
+                            <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
+                            <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
+                          </ul>
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
+                          <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                            {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
+                            <li>Không khấu hao phụ tùng thay mới</li>
+                            <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Zalo Contact Section */}
+                    {currentUser && (
+                      <div className="p-4 bg-white flex items-center justify-center">
+                        <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed">
+                          <span className="text-red-600">Liên hệ Zalo: </span>
+                          <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
+                          {currentUser.phone ? (
+                            <>
+                              <span className="text-slate-400"> - </span>
+                              <span className="text-red-600">{currentUser.phone}</span>
+                            </>
+                          ) : ''}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 

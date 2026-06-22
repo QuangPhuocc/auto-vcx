@@ -11,15 +11,15 @@
   --radius-md: 4px;
   --radius-sm: 2px;
 
-  /* Fresh Cyan / Teal palette override for primary blue theme */
-  --color-blue-50: #ecfeff;
-  --color-blue-100: #cffafe;
-  --color-blue-200: #a5f3fc;
-  --color-blue-300: #67e8f9;
-  --color-blue-400: #22d3ee;
-  --color-blue-500: #06b6d4;
-  --color-blue-600: #0891b2;
-  --color-blue-700: #0e7490;
-  --color-blue-800: #155e75;
-  --color-blue-900: #164e63;
+  /* Rose palette override for primary theme (#f43f5e) */
+  --color-blue-50: #fff1f2;
+  --color-blue-100: #ffe4e6;
+  --color-blue-200: #fecdd3;
+  --color-blue-300: #fda4af;
+  --color-blue-400: #fb7185;
+  --color-blue-500: #f43f5e;
+  --color-blue-600: #e11d48;
+  --color-blue-700: #be185d;
+  --color-blue-800: #9f1239;
+  --color-blue-900: #881337;
 }
