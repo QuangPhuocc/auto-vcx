@@ -1,6 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import { readDb, writeDb, logAction, User, RateRule, CommissionRule, UserCommissionOverride, InsuranceCompany, VehicleType } from './db';
+import { readDb, writeDb, logAction, User, RateRule, CommissionRule, UserCommissionOverride, InsuranceCompany, VehicleType, BankReferral } from './db';
 import { seedData } from './seed';
 import * as XLSX from 'xlsx';
 import bcrypt from 'bcryptjs';
@@ -17,6 +17,45 @@ const vehicles = [
   'pickup', 'van_minivan', 'truck_non_commercial', 'truck_commercial',
   'truck_refrigerated', 'training', 'internal', 'specialized',
   'electric_personal', 'electric_taxi', 'electric_grab'
+];
+
+export const BANK_OPTIONS = [
+  'Không vay ngân hàng',
+  'TP BANK - VAY MỚI',
+  'TP BANK - TÁI TỤC',
+  'VP BANK - CÁ NHÂN',
+  'VP BANK - DOANH NGHIỆP',
+  'PVCOMBANK - CÁ NHÂN',
+  'PVCOMBANK - DOANH NGHIỆP',
+  'OCB KHỐI CÁ NHÂN',
+  'OCB KHỐI DN VỪA & NHỎ',
+  'OCB KHỐI DN LỚN',
+  'TECHCOMBANK - NĂM ĐẦU',
+  'TECHCOMBANK - NĂM THỨ 2',
+  'SEABANK CÁ NHÂN',
+  'SEABANK DOANH NGHIỆP',
+  'ABBANK',
+  'NCB - NH QUỐC DÂN',
+  'VIETBANK',
+  'LPBANK',
+  'ACB - Á CHÂU',
+  'SHB',
+  'EIB - EXIMBANK',
+  'BẮC Á BANK',
+  'NAM Á BANK',
+  'KIENLONG BANK',
+  'VIETCOMBANK',
+  'HD BANK',
+  'SHINHAN',
+  'BẢN VIỆT',
+  'SACOMBANK',
+  'PG BANK',
+  'WOORI',
+  'PUBLIC BANK',
+  'MARITIMEBANK',
+  'VIB',
+  'BẢO VIỆT',
+  'MSB - NGÂN HÀNG HÀNG HẢI'
 ];
 
 const app = express();
@@ -2012,6 +2051,255 @@ Lưu ý:
   } catch (err: any) {
     res.status(500).json({ message: 'Lỗi phân tích tài liệu: ' + err.message });
   }
+});
+
+// ==========================================
+// BANK REFERRALS (CHUYÊN THU) ENDPOINTS
+// ==========================================
+
+// Get all bank referrals (accessible to all authenticated users for calculation)
+app.get('/api/bank-referrals', (req, res) => {
+  const currentUser = getAuthUser(req);
+  if (!currentUser) return res.status(401).json({ message: 'Không được cấp quyền' });
+
+  const db = readDb();
+  res.json(db.bankReferrals || []);
+});
+
+// Create bank referral (restricted to MASTER)
+app.post('/api/bank-referrals', (req, res) => {
+  const currentUser = getAuthUser(req);
+  if (!currentUser || currentUser.role !== 'master') {
+    return res.status(403).json({ message: 'Chỉ tài khoản MASTER mới được quản lý chuyên thu ngân hàng' });
+  }
+
+  const { companyId, bankName, rate } = req.body;
+  const db = readDb();
+
+  if (!companyId || !bankName || rate === undefined || isNaN(Number(rate))) {
+    return res.status(400).json({ message: 'Thông tin chuyên thu không hợp lệ' });
+  }
+
+  // Validate company exists
+  if (!db.companies.some(c => c.id === companyId)) {
+    return res.status(400).json({ message: `Hãng bảo hiểm ${companyId} không tồn tại` });
+  }
+
+  // Validate bankName
+  if (!BANK_OPTIONS.includes(bankName)) {
+    return res.status(400).json({ message: `Ngân hàng ${bankName} không hợp lệ` });
+  }
+
+  // Check if configuration already exists
+  if (db.bankReferrals && db.bankReferrals.some(b => b.companyId === companyId && b.bankName === bankName)) {
+    return res.status(400).json({ message: `Cấu hình chuyên thu cho ${companyId} và ${bankName} đã tồn tại` });
+  }
+
+  const newRef: BankReferral = {
+    id: Math.random().toString(36).substring(2, 9),
+    companyId,
+    bankName,
+    rate: Number(rate)
+  };
+
+  if (!db.bankReferrals) db.bankReferrals = [];
+  db.bankReferrals.push(newRef);
+  writeDb(db);
+
+  logAction(currentUser.id, currentUser.username, 'CREATE_BANK_REFERRAL', `Thêm chuyên thu: Hãng ${companyId}, Ngân hàng ${bankName}, Tỷ lệ ${(Number(rate) * 100).toFixed(1)}%`, null, newRef);
+
+  res.status(201).json(newRef);
+});
+
+// Update bank referral (restricted to MASTER)
+app.put('/api/bank-referrals/:id', (req, res) => {
+  const currentUser = getAuthUser(req);
+  if (!currentUser || currentUser.role !== 'master') {
+    return res.status(403).json({ message: 'Chỉ tài khoản MASTER mới được quản lý chuyên thu ngân hàng' });
+  }
+
+  const { id } = req.params;
+  const { companyId, bankName, rate } = req.body;
+  const db = readDb();
+
+  if (!db.bankReferrals) db.bankReferrals = [];
+  const ref = db.bankReferrals.find(b => b.id === id);
+  if (!ref) {
+    return res.status(404).json({ message: 'Không tìm thấy cấu hình chuyên thu ngân hàng' });
+  }
+
+  if (!companyId || !bankName || rate === undefined || isNaN(Number(rate))) {
+    return res.status(400).json({ message: 'Thông tin chuyên thu không hợp lệ' });
+  }
+
+  // Validate company exists
+  if (!db.companies.some(c => c.id === companyId)) {
+    return res.status(400).json({ message: `Hãng bảo hiểm ${companyId} không tồn tại` });
+  }
+
+  // Validate bankName
+  if (!BANK_OPTIONS.includes(bankName)) {
+    return res.status(400).json({ message: `Ngân hàng ${bankName} không hợp lệ` });
+  }
+
+  // Check if configuration already exists for another entry
+  if (db.bankReferrals.some(b => b.companyId === companyId && b.bankName === bankName && b.id !== id)) {
+    return res.status(400).json({ message: `Cấu hình chuyên thu cho ${companyId} và ${bankName} đã tồn tại` });
+  }
+
+  const oldValue = JSON.parse(JSON.stringify(ref));
+  ref.companyId = companyId;
+  ref.bankName = bankName;
+  ref.rate = Number(rate);
+
+  writeDb(db);
+
+  logAction(currentUser.id, currentUser.username, 'UPDATE_BANK_REFERRAL', `Cập nhật chuyên thu ID ${id}: Hãng ${companyId}, Ngân hàng ${bankName}, Tỷ lệ ${(Number(rate) * 100).toFixed(1)}%`, oldValue, ref);
+
+  res.json(ref);
+});
+
+// Delete bank referral (restricted to MASTER)
+app.delete('/api/bank-referrals/:id', (req, res) => {
+  const currentUser = getAuthUser(req);
+  if (!currentUser || currentUser.role !== 'master') {
+    return res.status(403).json({ message: 'Chỉ tài khoản MASTER mới được quản lý chuyên thu ngân hàng' });
+  }
+
+  const { id } = req.params;
+  const db = readDb();
+
+  if (!db.bankReferrals) db.bankReferrals = [];
+  const refIndex = db.bankReferrals.findIndex(b => b.id === id);
+  if (refIndex === -1) {
+    return res.status(404).json({ message: 'Không tìm thấy cấu hình chuyên thu ngân hàng' });
+  }
+
+  const ref = db.bankReferrals[refIndex];
+  db.bankReferrals.splice(refIndex, 1);
+  writeDb(db);
+
+  logAction(currentUser.id, currentUser.username, 'DELETE_BANK_REFERRAL', `Xóa chuyên thu: Hãng ${ref.companyId}, Ngân hàng ${ref.bankName}, Tỷ lệ ${(ref.rate * 100).toFixed(1)}%`, ref, null);
+
+  res.json({ message: 'Xóa cấu hình thành công' });
+});
+
+// Import bank referrals from JSON parsed from Excel (restricted to MASTER)
+app.post('/api/bank-referrals/import', (req, res) => {
+  const currentUser = getAuthUser(req);
+  if (!currentUser || currentUser.role !== 'master') {
+    return res.status(403).json({ message: 'Chỉ tài khoản MASTER mới được quản lý chuyên thu ngân hàng' });
+  }
+
+  const { referrals } = req.body;
+  if (!Array.isArray(referrals)) {
+    return res.status(400).json({ message: 'Dữ liệu chuyên thu không hợp lệ' });
+  }
+
+  const db = readDb();
+  const errors: string[] = [];
+  const validReferrals: BankReferral[] = [];
+
+  const matchBankName = (input: string): string | null => {
+    const removeAccents = (str: string) => {
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'd');
+    };
+    const cleanInput = removeAccents(input.trim().toLowerCase()).replace(/\s+/g, '');
+    if (cleanInput === 'msb-nhhanghai' || cleanInput === 'msb-nganhanghanghai') {
+      return 'MSB - NGÂN HÀNG HÀNG HẢI';
+    }
+    if (cleanInput === 'tecmcombank-namdau' || cleanInput === 'techcombank-namdau') {
+      return 'TECHCOMBANK - NĂM ĐẦU';
+    }
+    if (cleanInput === 'tecmcombank-namthu2' || cleanInput === 'techcombank-namthu2') {
+      return 'TECHCOMBANK - NĂM THỨ 2';
+    }
+    const match = BANK_OPTIONS.find(opt => {
+      const cleanOpt = removeAccents(opt.toLowerCase()).replace(/\s+/g, '');
+      return cleanOpt === cleanInput;
+    });
+    return match || null;
+  };
+
+  for (let i = 0; i < referrals.length; i++) {
+    const item = referrals[i];
+    const { companyVal, bankVal, rateVal } = item;
+
+    if (!companyVal || !bankVal || rateVal === undefined) {
+      errors.push(`Dòng ${i + 1}: Thiếu thông tin bắt buộc (Hãng bảo hiểm, Ngân hàng, Tỷ lệ chuyên thu)`);
+      continue;
+    }
+
+    // Match company
+    const company = db.companies.find(c => 
+      c.id.toLowerCase() === companyVal.toString().trim().toLowerCase() ||
+      c.name.toLowerCase().replace(/\s+/g, '') === companyVal.toString().trim().toLowerCase().replace(/\s+/g, '')
+    );
+    if (!company) {
+      errors.push(`Dòng ${i + 1}: Hãng bảo hiểm '${companyVal}' không tồn tại trong hệ thống`);
+      continue;
+    }
+
+    // Match bank
+    const matchedBank = matchBankName(bankVal.toString());
+    if (!matchedBank) {
+      errors.push(`Dòng ${i + 1}: Ngân hàng '${bankVal}' không hợp lệ hoặc không có trong danh sách hỗ trợ`);
+      continue;
+    }
+
+    // Parse rate
+    let rateNum = NaN;
+    const rateStr = rateVal.toString().trim();
+    if (rateStr.endsWith('%')) {
+      rateNum = parseFloat(rateStr.slice(0, -1)) / 100;
+    } else {
+      const parsed = parseFloat(rateStr);
+      if (!isNaN(parsed)) {
+        if (parsed > 1) {
+          rateNum = parsed / 100; // e.g. 5 means 5% = 0.05
+        } else {
+          rateNum = parsed; // e.g. 0.05
+        }
+      }
+    }
+
+    if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
+      errors.push(`Dòng ${i + 1}: Tỷ lệ chuyên thu '${rateVal}' không hợp lệ (phải là số từ 0% đến 100%)`);
+      continue;
+    }
+
+    // Prevent duplicates in the import batch
+    if (validReferrals.some(r => r.companyId === company.id && r.bankName === matchedBank)) {
+      errors.push(`Dòng ${i + 1}: Cấu hình bị trùng lặp cho hãng '${company.id}' và ngân hàng '${matchedBank}' trong file Excel`);
+      continue;
+    }
+
+    validReferrals.push({
+      id: Math.random().toString(36).substring(2, 9),
+      companyId: company.id,
+      bankName: matchedBank,
+      rate: rateNum
+    });
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({ message: 'Dữ liệu Excel có lỗi, vui lòng kiểm tra lại', errors });
+  }
+
+  const oldValue = JSON.parse(JSON.stringify(db.bankReferrals || []));
+  db.bankReferrals = validReferrals;
+  writeDb(db);
+
+  logAction(currentUser.id, currentUser.username, 'IMPORT_BANK_REFERRALS', `Nhập chuyên thu bằng Excel: Cập nhật thành công ${validReferrals.length} cấu hình`, oldValue, validReferrals);
+
+  res.json({
+    message: `Đã nhập và cập nhật thành công ${validReferrals.length} cấu hình chuyên thu ngân hàng!`,
+    success: validReferrals.length
+  });
 });
 
 app.listen(PORT, () => {

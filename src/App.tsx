@@ -46,6 +46,13 @@ interface RateRule {
   rules: RateSubRule[];
 }
 
+interface BankReferral {
+  id: string;
+  companyId: string;
+  bankName: string;
+  rate: number;
+}
+
 const EV_MODELS = [
   { id: 'VF3', name: 'Vinfast VF3 / Minio Green' },
   { id: 'VF5', name: 'Vinfast VF5 / Herio Green' },
@@ -54,6 +61,45 @@ const EV_MODELS = [
   { id: 'VF7', name: 'Vinfast VF7 / Limo Green' },
   { id: 'VF8_9', name: 'Vinfast VF8 / VF9' },
   { id: 'other', name: 'Hãng khác' }
+];
+
+const BANK_OPTIONS = [
+  'Không vay ngân hàng',
+  'TP BANK - VAY MỚI',
+  'TP BANK - TÁI TỤC',
+  'VP BANK - CÁ NHÂN',
+  'VP BANK - DOANH NGHIỆP',
+  'PVCOMBANK - CÁ NHÂN',
+  'PVCOMBANK - DOANH NGHIỆP',
+  'OCB KHỐI CÁ NHÂN',
+  'OCB KHỐI DN VỪA & NHỎ',
+  'OCB KHỐI DN LỚN',
+  'TECHCOMBANK - NĂM ĐẦU',
+  'TECHCOMBANK - NĂM THỨ 2',
+  'SEABANK CÁ NHÂN',
+  'SEABANK DOANH NGHIỆP',
+  'ABBANK',
+  'NCB - NH QUỐC DÂN',
+  'VIETBANK',
+  'LPBANK',
+  'ACB - Á CHÂU',
+  'SHB',
+  'EIB - EXIMBANK',
+  'BẮC Á BANK',
+  'NAM Á BANK',
+  'KIENLONG BANK',
+  'VIETCOMBANK',
+  'HD BANK',
+  'SHINHAN',
+  'BẢN VIỆT',
+  'SACOMBANK',
+  'PG BANK',
+  'WOORI',
+  'PUBLIC BANK',
+  'MARITIMEBANK',
+  'VIB',
+  'BẢO VIỆT',
+  'MSB - NGÂN HÀNG HÀNG HẢI'
 ];
 
 const getCompanyStyles = (company: { color: string; text?: string; border?: string }) => {
@@ -236,9 +282,24 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // App General State
-  const [activeTab, setActiveTab] = useState<'calc' | 'users' | 'commissions' | 'rates' | 'companies' | 'logs'>(
+  const [activeTab, setActiveTab] = useState<'calc' | 'users' | 'commissions' | 'rates' | 'companies' | 'logs' | 'bank-referrals'>(
     () => (localStorage.getItem('vcx_active_tab') as any) || 'calc'
   );
+
+  const [bankReferralsData, setBankReferralsData] = useState<BankReferral[]>([]);
+  const [selectedBank, setSelectedBank] = useState('Không vay ngân hàng');
+  const [bankSearchQuery, setBankSearchQuery] = useState('');
+  const [bankFilterCompany, setBankFilterCompany] = useState('');
+  const [bankFilterName, setBankFilterName] = useState('');
+
+  // Bank Referral CRUD Modal
+  const [showBankRefModal, setShowBankRefModal] = useState(false);
+  const [editingBankRef, setEditingBankRef] = useState<BankReferral | null>(null);
+  const [bankRefCompanyInput, setBankRefCompanyInput] = useState('');
+  const [bankRefNameInput, setBankRefNameInput] = useState('TP BANK - VAY MỚI');
+  const [bankRefRateInput, setBankRefRateInput] = useState('5');
+  const bankReferralsFileInputRef = useRef<HTMLInputElement>(null);
+  const [bankReferralsPreviewData, setBankReferralsPreviewData] = useState<any[] | null>(null);
 
   useEffect(() => {
     localStorage.setItem('vcx_active_tab', activeTab);
@@ -486,6 +547,7 @@ export default function App() {
       setCommissionsData({});
       setUsersList([]);
       setUserTree([]);
+      setBankReferralsData([]);
       return;
     }
 
@@ -496,11 +558,27 @@ export default function App() {
       .then(res => res.json())
       .then(data => setCommissionsData(data));
 
+    // Load Bank Referrals
+    fetchBankReferrals();
+
     // Load Users list if authorized
     if (currentUser.role !== 'user') {
       fetchUsers();
     }
   }, [currentUser, token]);
+
+  const fetchBankReferrals = () => {
+    fetch('/api/bank-referrals', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setBankReferralsData(data);
+        }
+      })
+      .catch(err => console.error('Failed to load bank referrals', err));
+  };
 
   const fetchUsers = () => {
     fetch('/api/users', {
@@ -1562,10 +1640,238 @@ export default function App() {
           setCompanies(data);
           setSelectedCompanies(data.map((c: any) => c.id));
         });
+    .catch(err => {
+      triggerNotification('error', err.message);
+    });
+  };
+
+  // Bank Referral CRUD handlers
+  const handleSaveBankReferral = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bankRefCompanyInput || !bankRefNameInput || bankRefRateInput === '') return;
+
+    const rateVal = parseFloat(bankRefRateInput) / 100; // e.g. 5% -> 0.05
+    if (isNaN(rateVal) || rateVal < 0 || rateVal > 1) {
+      triggerNotification('error', 'Tỷ lệ chuyên thu không hợp lệ (phải từ 0% đến 100%)');
+      return;
+    }
+
+    const url = editingBankRef ? `/api/bank-referrals/${editingBankRef.id}` : '/api/bank-referrals';
+    const method = editingBankRef ? 'PUT' : 'POST';
+
+    fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        companyId: bankRefCompanyInput,
+        bankName: bankRefNameInput,
+        rate: rateVal
+      })
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Thao tác thất bại');
+      triggerNotification('success', editingBankRef ? 'Cập nhật cấu hình chuyên thu thành công!' : 'Tạo cấu hình chuyên thu thành công!');
+      setShowBankRefModal(false);
+      setEditingBankRef(null);
+      fetchBankReferrals();
     })
     .catch(err => {
       triggerNotification('error', err.message);
     });
+  };
+
+  const handleStartAddBankRef = () => {
+    setEditingBankRef(null);
+    setBankRefCompanyInput(companies[0]?.id || '');
+    setBankRefNameInput(BANK_OPTIONS[1]); // TP BANK - VAY MỚI
+    setBankRefRateInput('5');
+    setShowBankRefModal(true);
+  };
+
+  const handleStartEditBankRef = (ref: BankReferral) => {
+    setEditingBankRef(ref);
+    setBankRefCompanyInput(ref.companyId);
+    setBankRefNameInput(ref.bankName);
+    setBankRefRateInput((ref.rate * 100).toString());
+    setShowBankRefModal(true);
+  };
+
+  const handleDeleteBankReferral = (id: string, companyId: string, bankName: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xoá chuyên thu của hãng ${companyId} tại ngân hàng ${bankName}?`)) return;
+
+    fetch(`/api/bank-referrals/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(async res => {
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Delete failed');
+      }
+      triggerNotification('success', `Đã xoá cấu hình chuyên thu hãng ${companyId} - ngân hàng ${bankName}`);
+      fetchBankReferrals();
+    })
+    .catch(err => {
+      triggerNotification('error', err.message);
+    });
+  };
+
+  const handleUploadBankReferralsExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        
+        // Let's parse the first sheet
+        const wsName = wb.SheetNames[0];
+        const ws = wb.Sheets[wsName];
+        const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 });
+        if (rows.length <= 1) {
+          triggerNotification('error', 'File Excel không có dữ liệu hoặc định dạng không hợp lệ');
+          return;
+        }
+
+        const dataRows = rows.slice(1);
+        const parsedRows: any[] = [];
+        const errors: string[] = [];
+
+        const matchBankName = (input: string): string | null => {
+          const removeAccents = (str: string) => {
+            return str
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/đ/g, 'd')
+              .replace(/Đ/g, 'd');
+          };
+          const cleanInput = removeAccents(input.trim().toLowerCase()).replace(/\s+/g, '');
+          if (cleanInput === 'msb-nhhanghai' || cleanInput === 'msb-nganhanghanghai') {
+            return 'MSB - NGÂN HÀNG HÀNG HẢI';
+          }
+          if (cleanInput === 'tecmcombank-namdau' || cleanInput === 'techcombank-namdau') {
+            return 'TECHCOMBANK - NĂM ĐẦU';
+          }
+          if (cleanInput === 'tecmcombank-namthu2' || cleanInput === 'techcombank-namthu2') {
+            return 'TECHCOMBANK - NĂM THỨ 2';
+          }
+          const match = BANK_OPTIONS.find(opt => {
+            const cleanOpt = removeAccents(opt.toLowerCase()).replace(/\s+/g, '');
+            return cleanOpt === cleanInput;
+          });
+          return match || null;
+        };
+
+        dataRows.forEach((row, idx) => {
+          const companyVal = row[0]?.toString().trim();
+          const bankVal = row[1]?.toString().trim();
+          const rateVal = row[2]?.toString().trim();
+
+          if (!companyVal && !bankVal && !rateVal) return; // skip empty rows
+
+          if (!companyVal || !bankVal || rateVal === undefined) {
+            errors.push(`Dòng ${idx + 2}: Thiếu cột (Hãng bảo hiểm, Ngân hàng, Tỷ lệ chuyên thu)`);
+            return;
+          }
+
+          // Match company
+          const company = companies.find(c => 
+            c.id.toLowerCase() === companyVal.toLowerCase() ||
+            c.name.toLowerCase().replace(/\s+/g, '') === companyVal.toLowerCase().replace(/\s+/g, '')
+          );
+          if (!company) {
+            errors.push(`Dòng ${idx + 2}: Hãng bảo hiểm '${companyVal}' không tồn tại`);
+            return;
+          }
+
+          // Match bank
+          const matchedBank = matchBankName(bankVal);
+          if (!matchedBank) {
+            errors.push(`Dòng ${idx + 2}: Ngân hàng '${bankVal}' không hợp lệ`);
+            return;
+          }
+
+          // Parse rate
+          let rateNum = NaN;
+          if (rateVal.endsWith('%')) {
+            rateNum = parseFloat(rateVal.slice(0, -1)) / 100;
+          } else {
+            const parsed = parseFloat(rateVal);
+            if (!isNaN(parsed)) {
+              if (parsed > 1) {
+                rateNum = parsed / 100;
+              } else {
+                rateNum = parsed;
+              }
+            }
+          }
+
+          if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
+            errors.push(`Dòng ${idx + 2}: Tỷ lệ chuyên thu '${rateVal}' không hợp lệ (phải từ 0% đến 100%)`);
+            return;
+          }
+
+          parsedRows.push({
+            companyVal: company.id,
+            bankVal: matchedBank,
+            rateVal: rateNum
+          });
+        });
+
+        if (errors.length > 0) {
+          setNotification({
+            type: 'error',
+            message: 'Phát hiện lỗi trong file Excel chuyên thu!',
+            details: errors
+          });
+          if (bankReferralsFileInputRef.current) bankReferralsFileInputRef.current.value = '';
+          return;
+        }
+
+        setBankReferralsPreviewData(parsedRows);
+        triggerNotification('success', `Tải lên thành công! Đang xem trước ${parsedRows.length} cấu hình chuyên thu ngân hàng.`);
+      } catch (err: any) {
+        console.error(err);
+        triggerNotification('error', 'Lỗi khi đọc file Excel chuyên thu: ' + err.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleApplyBankReferralsPreview = () => {
+    if (!bankReferralsPreviewData) return;
+
+    fetch('/api/bank-referrals/import', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ referrals: bankReferralsPreviewData })
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Lưu cấu hình thất bại');
+      triggerNotification('success', data.message || 'Đã cập nhật chuyên thu ngân hàng thành công!');
+      setBankReferralsPreviewData(null);
+      if (bankReferralsFileInputRef.current) bankReferralsFileInputRef.current.value = '';
+      fetchBankReferrals();
+    })
+    .catch(err => {
+      triggerNotification('error', err.message);
+    });
+  };
+
+  const handleCancelBankReferralsPreview = () => {
+    setBankReferralsPreviewData(null);
+    if (bankReferralsFileInputRef.current) bankReferralsFileInputRef.current.value = '';
+    triggerNotification('warning', 'Đã hủy xem trước file Excel.');
   };
 
   const handleUpdateMinPremium = (carTypeId: string, ruleIndex: number, newValue: number | null) => {
@@ -2262,10 +2568,20 @@ export default function App() {
         }
       }
 
+      let bankReferralRate = 0;
+      if (currentUser && selectedBank !== 'Không vay ngân hàng') {
+        const refMatch = bankReferralsData.find(b => b.companyId === company.id && b.bankName === selectedBank);
+        if (refMatch) {
+          bankReferralRate = refMatch.rate;
+        }
+      }
+
+      const netCommissionRate = currentUser ? (commissionRate - bankReferralRate) : 0;
+
       const profitValue = Number(profit) || 0;
       let discountedPremium = basePremium;
       if (currentUser) {
-        discountedPremium = basePremium - (basePremium / 1.1 * commissionRate - profitValue);
+        discountedPremium = basePremium - (basePremium / 1.1 * netCommissionRate - profitValue);
         discountedPremium = Math.ceil(discountedPremium / 50000) * 50000;
       }
 
@@ -2278,11 +2594,13 @@ export default function App() {
         minPremium,
         deductible: activeDeductible,
         commissionRate,
+        bankReferralRate,
+        netCommissionRate,
         discountedPremium,
         isAvailable: true
       };
     });
-  }, [carType, manufactureYear, carValue, age, isEV, evModel, profit, ratesData, commissionsData, orderedCompanies, currentUser, dbCarType, customDeductibles]);
+  }, [carType, manufactureYear, carValue, age, isEV, evModel, profit, ratesData, commissionsData, orderedCompanies, currentUser, dbCarType, customDeductibles, selectedBank, bankReferralsData]);
 
   // Display filter / sorting quotes
   const displayQuotes = useMemo(() => {
@@ -2661,6 +2979,12 @@ export default function App() {
                   >
                     Quản lý Hãng BH
                   </button>
+                  <button 
+                    onClick={() => setActiveTab('bank-referrals')}
+                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'bank-referrals' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Quản lý Chuyên thu
+                  </button>
                 </>
               )}
             </nav>
@@ -2745,6 +3069,12 @@ export default function App() {
                   className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'companies' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
                 >
                   Hãng bảo hiểm
+                </button>
+                <button 
+                  onClick={() => setActiveTab('bank-referrals')}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'bank-referrals' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+                >
+                  Chuyên thu
                 </button>
               </>
             )}
@@ -2856,7 +3186,7 @@ export default function App() {
               </div>
 
               {/* Extra attributes input row in stable grid layout */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 {/* Column 1: Seat count / Tonnage */}
                 {showSeatCount && (
                   <div className="flex flex-col gap-1">
@@ -2929,7 +3259,21 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* Column 4: Profit margin */}
+                {/* Column 4: Ngân hàng */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Ngân hàng vay</span>
+                  <select 
+                    value={selectedBank}
+                    onChange={(e) => setSelectedBank(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 bg-white font-bold text-xs text-slate-700"
+                  >
+                    {BANK_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Column 5: Profit margin */}
                 {currentUser ? (
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận mong muốn</span>
@@ -3175,10 +3519,24 @@ export default function App() {
                                     </div>
                                   )}
                                   {currentUser && showCommission && (
-                                    <div className="flex justify-between items-end pb-3 border-b border-slate-100">
-                                      <span className="text-slate-400 text-xs font-bold uppercase">Hoa hồng</span>
-                                      <span className={`text-sm font-bold text-slate-700`}>{(quote.commissionRate * 100).toFixed(1)}%</span>
-                                    </div>
+                                    <>
+                                      <div className="flex justify-between items-end pb-3 border-b border-slate-100">
+                                        <span className="text-slate-400 text-xs font-bold uppercase">Hoa hồng</span>
+                                        <span className="text-sm font-bold text-slate-700">{(quote.commissionRate * 100).toFixed(1)}%</span>
+                                      </div>
+                                      {selectedBank !== 'Không vay ngân hàng' && (
+                                        <>
+                                          <div className="flex justify-between items-end pb-3 border-b border-slate-100">
+                                            <span className="text-slate-400 text-xs font-bold uppercase">Chuyên thu</span>
+                                            <span className="text-sm font-bold text-slate-700">{(quote.bankReferralRate * 100).toFixed(1)}%</span>
+                                          </div>
+                                          <div className="flex justify-between items-end pb-3 border-b border-slate-100">
+                                            <span className="text-slate-400 text-xs font-bold uppercase">Thực nhận</span>
+                                            <span className="text-sm font-black text-blue-600">{(quote.netCommissionRate * 100).toFixed(1)}%</span>
+                                          </div>
+                                        </>
+                                      )}
+                                    </>
                                   )}
                                 {showTerms && (
                                   <div className="pb-3 border-b border-slate-100">
@@ -3277,15 +3635,48 @@ export default function App() {
                   <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <table className="w-full text-left border-collapse table-fixed">
                       <colgroup>
-                        <col className="w-[30%]" />
-                        <col className="w-[25%]" />
-                        <col className="w-[25%]" />
-                        <col className="w-[20%]" />
+                        {!(currentUser && showCommission) ? (
+                          <>
+                            <col className="w-[30%]" />
+                            <col className="w-[25%]" />
+                            <col className="w-[25%]" />
+                            <col className="w-[20%]" />
+                          </>
+                        ) : selectedBank === 'Không vay ngân hàng' ? (
+                          <>
+                            <col className="w-[25%]" />
+                            <col className="w-[20%]" />
+                            <col className="w-[15%]" />
+                            <col className="w-[25%]" />
+                            <col className="w-[15%]" />
+                          </>
+                        ) : (
+                          <>
+                            <col className="w-[22%]" />
+                            <col className="w-[15%]" />
+                            <col className="w-[11%]" />
+                            <col className="w-[11%]" />
+                            <col className="w-[11%]" />
+                            <col className="w-[18%]" />
+                            <col className="w-[12%]" />
+                          </>
+                        )}
                       </colgroup>
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
                           <th className="p-4">Hãng Bảo Hiểm</th>
                           <th className="p-4 text-right">{showBasePremium ? "Giá bảo hiểm" : ""}</th>
+                          {currentUser && showCommission && (
+                            <>
+                              <th className="p-4 text-right">Hoa hồng</th>
+                              {selectedBank !== 'Không vay ngân hàng' && (
+                                <>
+                                  <th className="p-4 text-right">Chuyên thu</th>
+                                  <th className="p-4 text-right">Thực nhận</th>
+                                </>
+                              )}
+                            </>
+                          )}
                           <th className="p-4 text-right">{showDiscountedPremium ? "Giảm còn" : ""}</th>
                           <th className="p-4 text-right">Mức khấu trừ</th>
                         </tr>
@@ -3320,6 +3711,24 @@ export default function App() {
                                   ""
                                 )}
                               </td>
+
+                              {currentUser && showCommission && (
+                                <>
+                                  <td className="p-4 text-right font-bold text-slate-700">
+                                    {(quote.commissionRate * 100).toFixed(1)}%
+                                  </td>
+                                  {selectedBank !== 'Không vay ngân hàng' && (
+                                    <>
+                                      <td className="p-4 text-right font-bold text-slate-700">
+                                        {(quote.bankReferralRate * 100).toFixed(1)}%
+                                      </td>
+                                      <td className="p-4 text-right font-black text-blue-600">
+                                        {(quote.netCommissionRate * 100).toFixed(1)}%
+                                      </td>
+                                    </>
+                                  )}
+                                </>
+                              )}
                               
                               <td className="p-4 text-right font-black" style={compStyle.textStyle}>
                                 {currentUser && showDiscountedPremium ? (
@@ -4682,11 +5091,289 @@ export default function App() {
           </div>
         )}
 
+        {/* Tab 5.5: Bank Referral Fee Management (MASTER only) */}
+        {activeTab === 'bank-referrals' && currentUser && currentUser.role === 'master' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <Percent size={22} className="text-blue-600" />
+              Quản lý Chuyên thu theo Ngân hàng
+            </h2>
+
+            {/* Toolbar: Search, Filters, Add, and Excel Upload */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                {/* Search & Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 max-w-3xl">
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm ngân hàng..."
+                    value={bankSearchQuery}
+                    onChange={(e) => setBankSearchQuery(e.target.value)}
+                    className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                  />
+                  <select
+                    value={bankFilterCompany}
+                    onChange={(e) => setBankFilterCompany(e.target.value)}
+                    className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                  >
+                    <option value="">Tất cả hãng bảo hiểm</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                    ))}
+                  </select>
+                  <select
+                    value={bankFilterName}
+                    onChange={(e) => setBankFilterName(e.target.value)}
+                    className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                  >
+                    <option value="">Tất cả ngân hàng</option>
+                    {BANK_OPTIONS.slice(1).map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <input 
+                    type="file"
+                    accept=".xlsx"
+                    ref={bankReferralsFileInputRef}
+                    onChange={handleUploadBankReferralsExcel}
+                    className="hidden"
+                  />
+                  <button 
+                    onClick={() => bankReferralsFileInputRef.current?.click()}
+                    className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Upload size={14} />
+                    Import Excel
+                  </button>
+
+                  <button
+                    onClick={handleStartAddBankRef}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-200"
+                  >
+                    <Plus size={14} />
+                    Thêm cấu hình
+                  </button>
+                </div>
+              </div>
+
+              {/* Excel Preview Notification & Action Bar */}
+              {bankReferralsPreviewData && (
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top-2">
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-sm text-amber-800">Chế độ Xem trước Excel Chuyên thu</h4>
+                    <p className="text-xs text-amber-700 font-semibold">
+                      Hệ thống đang hiển thị bản xem trước gồm **{bankReferralsPreviewData.length}** dòng từ file vừa chọn. Nhấp Lưu cấu hình để ghi đè dữ liệu cũ.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <button
+                      onClick={handleApplyBankReferralsPreview}
+                      className="flex-1 sm:flex-initial px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs transition-all"
+                    >
+                      Lưu cấu hình
+                    </button>
+                    <button
+                      onClick={handleCancelBankReferralsPreview}
+                      className="flex-1 sm:flex-initial px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs transition-all"
+                    >
+                      Huỷ bỏ
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* List Table of bank referrals */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                      <th className="p-4">Hãng Bảo Hiểm</th>
+                      <th className="p-4">Ngân hàng</th>
+                      <th className="p-4 text-right">Tỷ lệ Chuyên thu</th>
+                      <th className="p-4 text-center">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                    {(() => {
+                      const list = bankReferralsPreviewData || bankReferralsData;
+                      const filtered = list.filter(item => {
+                        const matchedCompany = companies.find(c => c.id === (item.companyId || item.companyVal));
+                        const companyName = matchedCompany ? matchedCompany.name : '';
+                        const companyId = item.companyId || item.companyVal || '';
+                        const bankName = item.bankName || item.bankVal || '';
+                        
+                        const matchSearch = bankSearchQuery === '' || bankName.toLowerCase().includes(bankSearchQuery.toLowerCase());
+                        const matchCompany = bankFilterCompany === '' || companyId === bankFilterCompany;
+                        const matchBank = bankFilterName === '' || bankName === bankFilterName;
+
+                        return matchSearch && matchCompany && matchBank;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={4} className="p-8 text-center text-slate-400 font-bold">
+                              Không tìm thấy cấu hình chuyên thu nào phù hợp
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map((item, idx) => {
+                        const compId = item.companyId || item.companyVal;
+                        const matchedCompany = companies.find(c => c.id === compId);
+                        const compStyle = matchedCompany ? getCompanyStyles(matchedCompany) : null;
+                        const bankName = item.bankName || item.bankVal;
+                        const rate = item.rate !== undefined ? item.rate : item.rateVal;
+
+                        return (
+                          <tr key={item.id || idx} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                {compStyle ? (
+                                  <span 
+                                    className={`inline-block px-2.5 py-0.5 rounded-xl font-bold border text-[10px] ${compStyle.bgClass} ${compStyle.textClass} ${compStyle.borderClass}`}
+                                    style={{
+                                      ...compStyle.bgStyle,
+                                      ...compStyle.textStyle,
+                                      ...compStyle.borderStyle,
+                                      backgroundColor: compStyle.isHex ? `${matchedCompany.color}15` : undefined,
+                                    }}
+                                  >
+                                    {matchedCompany.name} ({compId})
+                                  </span>
+                                ) : (
+                                  <span className="font-bold">{compId}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4 font-bold text-slate-800">{bankName}</td>
+                            <td className="p-4 text-right font-black text-blue-600 text-sm">{(rate * 100).toFixed(1)}%</td>
+                            <td className="p-4 text-center">
+                              {!bankReferralsPreviewData ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleStartEditBankRef(item)}
+                                    className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                    title="Sửa"
+                                  >
+                                    <Edit3 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteBankReferral(item.id, compId, bankName)}
+                                    className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Xoá"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-400">Xem trước</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Tab 6: Audit Log Viewer (visible to non-user roles) */}
         {activeTab === 'logs' && currentUser && currentUser.role !== 'user' && (
           <AuditLogTab token={token} />
         )}
       </main>
+
+      {/* Bank Referral CRUD Modal */}
+      {showBankRefModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl border border-slate-200 p-8 space-y-6 animate-in zoom-in-95 duration-200 relative">
+            <button 
+              onClick={() => setShowBankRefModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold text-sm bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all"
+            >
+              Đóng
+            </button>
+
+            <div className="text-center space-y-2">
+              <div className="inline-flex p-4 bg-blue-50 rounded-2xl text-blue-600 shadow-inner">
+                <Percent size={36} />
+              </div>
+              <h2 className="text-xl font-black text-slate-800 tracking-tight">
+                {editingBankRef ? 'Cập nhật Chuyên thu' : 'Thêm Chuyên thu Ngân hàng'}
+              </h2>
+              <p className="text-xs text-slate-500 font-bold">Cấu hình tỷ lệ phí chuyển ngân hàng cho hãng</p>
+            </div>
+
+            <form onSubmit={handleSaveBankReferral} className="space-y-4">
+              {/* Insurer Select */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Hãng bảo hiểm</label>
+                <select
+                  value={bankRefCompanyInput}
+                  onChange={(e) => setBankRefCompanyInput(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                >
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bank Select */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ngân hàng</label>
+                <select
+                  value={bankRefNameInput}
+                  onChange={(e) => setBankRefNameInput(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                >
+                  {BANK_OPTIONS.slice(1).map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Referral rate input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tỷ lệ Chuyên thu (%)</label>
+                <div className="relative">
+                  <input 
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    placeholder="VD: 5.5"
+                    value={bankRefRateInput}
+                    onChange={(e) => setBankRefRateInput(e.target.value)}
+                    required
+                    className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-slate-800"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-extrabold text-sm">%</span>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-200 transition-all flex items-center justify-center gap-2"
+              >
+                <Save size={18} />
+                Lưu cấu hình
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 console.log('--- KHỞI CHẠY HỆ THỐNG VCX FULL-STACK ---');
 
 // Spawn server (Express)
-const serverProcess = spawn('npx', ['tsx', 'server/server.ts'], {
+const serverProcess = spawn('npx', ['tsx', 'watch', 'server/server.ts'], {
   stdio: 'inherit',
   shell: true,
   cwd: path.resolve(__dirname, '..')

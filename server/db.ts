@@ -89,6 +89,13 @@ export interface VehicleType {
   dbCarType: string;
 }
 
+export interface BankReferral {
+  id: string;
+  companyId: string;
+  bankName: string;
+  rate: number;
+}
+
 export interface DbSchema {
   users: User[];
   companies: InsuranceCompany[];
@@ -97,6 +104,7 @@ export interface DbSchema {
   userCommissions: UserCommissionOverride[];
   logs: AuditLog[];
   vehicles: VehicleType[];
+  bankReferrals: BankReferral[];
 }
 
 const DEFAULT_COMPANIES: InsuranceCompany[] = [
@@ -337,6 +345,12 @@ export const getSqliteDb = (): SqlJsDatabase => {
         [group] TEXT,
         dbCarType TEXT
       );
+      CREATE TABLE IF NOT EXISTS bankReferrals (
+        id TEXT PRIMARY KEY,
+        companyId TEXT,
+        bankName TEXT,
+        rate REAL
+      );
     `);
     
     // Check if migration is needed (table users has 0 rows and db.json exists)
@@ -482,6 +496,7 @@ export const readDb = (): DbSchema => {
     const userCommissions = db.prepare('SELECT * FROM userCommissions').all() as any[];
     const logs = db.prepare('SELECT * FROM logs ORDER BY timestamp DESC LIMIT 1000').all() as any[];
     const vehicles = db.prepare('SELECT * FROM vehicles').all() as any[];
+    const bankReferrals = db.prepare('SELECT * FROM bankReferrals').all() as any[];
     
     return {
       users: users.map(u => ({
@@ -546,11 +561,17 @@ export const readDb = (): DbSchema => {
         name: v.name,
         group: v.group,
         dbCarType: v.dbCarType
+      })),
+      bankReferrals: bankReferrals.map(b => ({
+        id: b.id,
+        companyId: b.companyId,
+        bankName: b.bankName,
+        rate: b.rate
       }))
     };
   } catch (err) {
     console.error('Error reading from SQLite database:', err);
-    return { users: [], companies: [], rates: [], commissions: [], userCommissions: [], logs: [], vehicles: [] };
+    return { users: [], companies: [], rates: [], commissions: [], userCommissions: [], logs: [], vehicles: [], bankReferrals: [] };
   }
 };
 
@@ -625,6 +646,16 @@ export const writeDb = (dbSchema: DbSchema) => {
     `);
     for (const v of dbSchema.vehicles) {
       insertVehicle.run(v.id, v.name, v.group, v.dbCarType);
+    }
+
+    // 8. BankReferrals
+    db.prepare('DELETE FROM bankReferrals').run();
+    const insertBankRef = db.prepare(`
+      INSERT INTO bankReferrals (id, companyId, bankName, rate)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (const b of dbSchema.bankReferrals || []) {
+      insertBankRef.run(b.id, b.companyId, b.bankName, b.rate);
     }
   })();
 };
