@@ -2749,8 +2749,17 @@ export default function App() {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err: any) {
-      console.error('Copy image failed', err);
-      alert('Không thể tự động copy ảnh vào Clipboard. Chi tiết lỗi: ' + (err.message || err) + '\n\nHãy đảm bảo bạn đang sử dụng kết nối bảo mật HTTPS (hoặc localhost) và cấp quyền truy cập Clipboard.');
+      console.error('Copy image failed, opening manual copy fallback...', err);
+      try {
+        const dataUrl = await toPng(resultsRef.current!, {
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+        });
+        setFallbackImageSrc(dataUrl);
+      } catch (fallbackErr) {
+        console.error('Failed to generate fallback image', fallbackErr);
+        alert('Không thể tự động copy ảnh vào Clipboard. Chi tiết lỗi: ' + (err.message || err) + '\n\nHãy đảm bảo bạn đang sử dụng kết nối bảo mật HTTPS (hoặc localhost) và cấp quyền truy cập Clipboard.');
+      }
     } finally {
       setIsGenerating(false);
     }
