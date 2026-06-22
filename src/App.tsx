@@ -355,7 +355,7 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(true);
   const [showBasePremium, setShowBasePremium] = useState(true);
   const [showDiscountedPremium, setShowDiscountedPremium] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'agent'>('grid');
   const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
 
@@ -2997,7 +2997,7 @@ export default function App() {
             <nav className="flex flex-row-reverse items-center gap-0.5 xl:gap-1.5 whitespace-nowrap">
               <button 
                 onClick={() => setActiveTab('calc')}
-                className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'calc' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'calc' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                 Báo giá
               </button>
@@ -3005,7 +3005,7 @@ export default function App() {
               {currentUser && (
                 <button 
                   onClick={() => setActiveTab('commissions')}
-                  className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'commissions' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                  className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'commissions' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                 >
                   Quản lý Hoa hồng
                 </button>
@@ -3015,13 +3015,13 @@ export default function App() {
                 <>
                   <button 
                     onClick={() => setActiveTab('users')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
                     Quản lý Tài khoản
                   </button>
                   <button 
                     onClick={() => setActiveTab('logs')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
                     Lịch sử hệ thống
                   </button>
@@ -3032,13 +3032,13 @@ export default function App() {
                 <>
                   <button 
                     onClick={() => setActiveTab('rates')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'rates' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'rates' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
                     Quản lý Tỉ lệ phí
                   </button>
                   <button 
                     onClick={() => setActiveTab('companies')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'companies' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'companies' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
                     Quản lý Hãng BH
                   </button>
@@ -3087,13 +3087,13 @@ export default function App() {
           <div className="lg:hidden flex flex-row-reverse border-t border-slate-200 overflow-x-auto bg-white px-2 py-1 justify-start">
             <button 
               onClick={() => setActiveTab('calc')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'calc' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+              className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'calc' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
             >
               Báo giá
             </button>
             <button 
               onClick={() => setActiveTab('commissions')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'commissions' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+              className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'commissions' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
             >
               Hoa hồng
             </button>
@@ -3101,13 +3101,13 @@ export default function App() {
               <>
                 <button 
                   onClick={() => setActiveTab('users')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'users' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   Tài khoản
                 </button>
                 <button 
                   onClick={() => setActiveTab('logs')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'logs' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   Lịch sử
                 </button>
@@ -3117,13 +3117,13 @@ export default function App() {
               <>
                 <button 
                   onClick={() => setActiveTab('rates')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'rates' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'rates' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   Tỉ lệ phí
                 </button>
                 <button 
                   onClick={() => setActiveTab('companies')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'companies' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'companies' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   Hãng bảo hiểm
                 </button>
@@ -3238,7 +3238,48 @@ export default function App() {
 
               {/* Extra attributes input row in stable grid layout */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                {/* Column 1: Seat count / Tonnage */}
+                {/* Column 1: Ngân hàng */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Ngân hàng vay</span>
+                  <select 
+                    value={selectedBank}
+                    onChange={(e) => setSelectedBank(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 bg-white font-bold text-xs text-slate-700"
+                  >
+                    {BANK_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Column 2: Profit margin */}
+                {currentUser ? (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận mong muốn</span>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={Number(profit).toLocaleString('vi-VN')}
+                        onChange={(e) => setProfit(e.target.value.replace(/\D/g, ''))}
+                        className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs font-bold text-slate-800"
+                        placeholder="Nhập lợi nhuận..."
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">VNĐ</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Lợi nhuận mong muốn</span>
+                    <input 
+                      type="text" 
+                      disabled 
+                      placeholder="Đăng nhập để xem"
+                      className="w-full px-3 py-2 bg-slate-100/50 rounded-xl border border-slate-200 outline-none text-xs font-semibold text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+                )}
+
+                {/* Column 3: Seat count / Tonnage */}
                 {showSeatCount && (
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Số chỗ</span>
@@ -3276,7 +3317,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Column 2: Động cơ / Dòng xe */}
+                {/* Column 4: Động cơ / Dòng xe */}
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Động cơ / Dòng xe</span>
                   <select 
@@ -3289,47 +3330,6 @@ export default function App() {
                     ))}
                   </select>
                 </div>
-
-                {/* Column 3: Ngân hàng */}
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Ngân hàng vay</span>
-                  <select 
-                    value={selectedBank}
-                    onChange={(e) => setSelectedBank(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 bg-white font-bold text-xs text-slate-700"
-                  >
-                    {BANK_OPTIONS.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Column 4: Profit margin */}
-                {currentUser ? (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận mong muốn</span>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={Number(profit).toLocaleString('vi-VN')}
-                        onChange={(e) => setProfit(e.target.value.replace(/\D/g, ''))}
-                        className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs font-bold text-slate-800"
-                        placeholder="Nhập lợi nhuận..."
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">VNĐ</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Lợi nhuận mong muốn</span>
-                    <input 
-                      type="text" 
-                      disabled 
-                      placeholder="Đăng nhập để xem"
-                      className="w-full px-3 py-2 bg-slate-100/50 rounded-xl border border-slate-200 outline-none text-xs font-semibold text-slate-400 cursor-not-allowed"
-                    />
-                  </div>
-                )}
               </div>
             </div>
 
@@ -3353,6 +3353,12 @@ export default function App() {
                       className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                     >
                       Bảng
+                    </button>
+                    <button
+                      onClick={() => setViewMode('agent')}
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'agent' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      Đại lý
                     </button>
                   </div>
 
