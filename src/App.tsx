@@ -54,13 +54,14 @@ interface BankReferral {
 }
 
 const EV_MODELS = [
+  { id: 'gas', name: 'Xe xăng' },
   { id: 'VF3', name: 'Vinfast VF3 / Minio Green' },
   { id: 'VF5', name: 'Vinfast VF5 / Herio Green' },
   { id: 'VFe34', name: 'Vinfast VF e34' },
   { id: 'VF6', name: 'Vinfast VF6 / Norio Green' },
   { id: 'VF7', name: 'Vinfast VF7 / Limo Green' },
   { id: 'VF8_9', name: 'Vinfast VF8 / VF9' },
-  { id: 'other', name: 'Hãng khác' }
+  { id: 'other', name: 'Xe điện khác' }
 ];
 
 const BANK_OPTIONS = [
@@ -282,9 +283,13 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // App General State
-  const [activeTab, setActiveTab] = useState<'calc' | 'users' | 'commissions' | 'rates' | 'companies' | 'logs' | 'bank-referrals'>(
-    () => (localStorage.getItem('vcx_active_tab') as any) || 'calc'
+  const [activeTab, setActiveTab] = useState<'calc' | 'users' | 'commissions' | 'rates' | 'companies' | 'logs'>(
+    () => {
+      const saved = localStorage.getItem('vcx_active_tab');
+      return saved === 'bank-referrals' ? 'commissions' : (saved as any || 'calc');
+    }
   );
+  const [commissionsSubTab, setCommissionsSubTab] = useState<'commission' | 'bank-referrals'>('commission');
 
   const [bankReferralsData, setBankReferralsData] = useState<BankReferral[]>([]);
   const [selectedBank, setSelectedBank] = useState('Không vay ngân hàng');
@@ -336,8 +341,7 @@ export default function App() {
 
   // Calculator Form State
   const [carType, setCarType] = useState('personal_under_9');
-  const [isEV, setIsEV] = useState(false);
-  const [evModel, setEvModel] = useState('VF5');
+  const [evModel, setEvModel] = useState('gas');
   const [carModel, setCarModel] = useState('');
   const [manufactureYear, setManufactureYear] = useState<number>(currentYear);
   const [carValueStr, setCarValueStr] = useState<string>('500000000');
@@ -957,6 +961,42 @@ export default function App() {
     XLSX.utils.book_append_sheet(wb, ws, "BieuPhiHoaHong");
     XLSX.writeFile(wb, "VCX_Mau_Bieu_Phi_Hoa_Hong.xlsx");
     triggerNotification('success', 'Đã tải xuống file Excel mẫu hoa hồng thành công!');
+  };
+
+  const downloadBankReferralsTemplate = () => {
+    const headers = [
+      'TỶ LỆ % CHUYÊN THU VCX QUA NGÂN HÀNG 2026',
+      'DBV', 'PJICO', 'MIC', 'PVI', 'BSH', 'PTI', 'BẢO VIỆT', 'BẢO LONG', 'TASCO', 'LIBERTY', 'BẢO MINH',
+      'GHI CHÚ'
+    ];
+    
+    const dataRows = BANK_OPTIONS.slice(1).map(bankName => {
+      const row: any[] = [bankName];
+      headers.slice(1, -1).forEach(compName => {
+        let compId = compName;
+        if (compName === 'PJICO') compId = 'PJI';
+        if (compName === 'BẢO VIỆT') compId = 'BV';
+        if (compName === 'BẢO LONG') compId = 'BL';
+        
+        const match = bankReferralsData.find(b => b.companyId === compId && b.bankName === bankName);
+        row.push(match ? `${(match.rate * 100).toFixed(1)}%` : '');
+      });
+      row.push('');
+      return row;
+    });
+
+    const worksheetData = [headers, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ChuyenThu');
+    
+    ws['!cols'] = [{ wch: 35 }];
+    for (let c = 1; c < headers.length; c++) {
+      ws['!cols'].push({ wch: 12 });
+    }
+
+    XLSX.writeFile(wb, 'Bieu_phi_chuyen_thu_ngan_hang_2026.xlsx');
+    triggerNotification('success', 'Đã tải xuống tệp tin biểu phí chuyên thu mẫu!');
   };
 
   const handleCommExcelUpload = (file: File) => {
@@ -1640,6 +1680,7 @@ export default function App() {
           setCompanies(data);
           setSelectedCompanies(data.map((c: any) => c.id));
         });
+    })
     .catch(err => {
       triggerNotification('error', err.message);
     });
@@ -1730,7 +1771,6 @@ export default function App() {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         
-        // Let's parse the first sheet
         const wsName = wb.SheetNames[0];
         const ws = wb.Sheets[wsName];
         const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 });
@@ -1739,6 +1779,7 @@ export default function App() {
           return;
         }
 
+        const headers = rows[0];
         const dataRows = rows.slice(1);
         const parsedRows: any[] = [];
         const errors: string[] = [];
@@ -1768,59 +1809,79 @@ export default function App() {
           return match || null;
         };
 
-        dataRows.forEach((row, idx) => {
-          const companyVal = row[0]?.toString().trim();
-          const bankVal = row[1]?.toString().trim();
-          const rateVal = row[2]?.toString().trim();
-
-          if (!companyVal && !bankVal && !rateVal) return; // skip empty rows
-
-          if (!companyVal || !bankVal || rateVal === undefined) {
-            errors.push(`Dòng ${idx + 2}: Thiếu cột (Hãng bảo hiểm, Ngân hàng, Tỷ lệ chuyên thu)`);
+        const colMappings: Array<{ colIdx: number; companyId: string } | null> = [];
+        headers.forEach((hVal, idx) => {
+          if (idx === 0) {
+            colMappings.push(null);
+            return;
+          }
+          const hStr = hVal?.toString().trim();
+          if (!hStr || hStr.toLowerCase() === 'ghi chú' || hStr.toLowerCase() === 'note') {
+            colMappings.push(null);
             return;
           }
 
-          // Match company
-          const company = companies.find(c => 
-            c.id.toLowerCase() === companyVal.toLowerCase() ||
-            c.name.toLowerCase().replace(/\s+/g, '') === companyVal.toLowerCase().replace(/\s+/g, '')
+          let mappedCompany = companies.find(c => 
+            c.id.toLowerCase() === hStr.toLowerCase() ||
+            c.name.toLowerCase().replace(/\s+/g, '') === hStr.toLowerCase().replace(/\s+/g, '')
           );
-          if (!company) {
-            errors.push(`Dòng ${idx + 2}: Hãng bảo hiểm '${companyVal}' không tồn tại`);
-            return;
+          if (!mappedCompany) {
+            if (hStr.toLowerCase() === 'pjico') {
+              mappedCompany = companies.find(c => c.id === 'PJI');
+            } else if (hStr.toLowerCase() === 'bảo việt') {
+              mappedCompany = companies.find(c => c.id === 'BV');
+            } else if (hStr.toLowerCase() === 'bảo long') {
+              mappedCompany = companies.find(c => c.id === 'BL');
+            }
           }
 
-          // Match bank
+          if (mappedCompany) {
+            colMappings.push({ colIdx: idx, companyId: mappedCompany.id });
+          } else {
+            colMappings.push(null);
+          }
+        });
+
+        dataRows.forEach((row, idx) => {
+          const bankVal = row[0]?.toString().trim();
+          if (!bankVal) return;
+
           const matchedBank = matchBankName(bankVal);
           if (!matchedBank) {
             errors.push(`Dòng ${idx + 2}: Ngân hàng '${bankVal}' không hợp lệ`);
             return;
           }
 
-          // Parse rate
-          let rateNum = NaN;
-          if (rateVal.endsWith('%')) {
-            rateNum = parseFloat(rateVal.slice(0, -1)) / 100;
-          } else {
-            const parsed = parseFloat(rateVal);
-            if (!isNaN(parsed)) {
-              if (parsed > 1) {
-                rateNum = parsed / 100;
-              } else {
-                rateNum = parsed;
+          colMappings.forEach((mapping, colIdx) => {
+            if (!mapping) return;
+
+            const cellVal = row[colIdx]?.toString().trim();
+            if (cellVal === undefined || cellVal === '') return;
+
+            let rateNum = NaN;
+            if (cellVal.endsWith('%')) {
+              rateNum = parseFloat(cellVal.slice(0, -1)) / 100;
+            } else {
+              const parsed = parseFloat(cellVal);
+              if (!isNaN(parsed)) {
+                if (parsed > 1) {
+                  rateNum = parsed / 100;
+                } else {
+                  rateNum = parsed;
+                }
               }
             }
-          }
 
-          if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
-            errors.push(`Dòng ${idx + 2}: Tỷ lệ chuyên thu '${rateVal}' không hợp lệ (phải từ 0% đến 100%)`);
-            return;
-          }
+            if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
+              errors.push(`Dòng ${idx + 2}, Cột '${headers[colIdx]}': Tỷ lệ chuyên thu '${cellVal}' không hợp lệ (phải từ 0% đến 100%)`);
+              return;
+            }
 
-          parsedRows.push({
-            companyVal: company.id,
-            bankVal: matchedBank,
-            rateVal: rateNum
+            parsedRows.push({
+              companyVal: mapping.companyId,
+              bankVal: matchedBank,
+              rateVal: rateNum
+            });
           });
         });
 
@@ -2437,6 +2498,7 @@ export default function App() {
   // Core Quote Engine matching logic
   const quotes = useMemo(() => {
     if (ratesData.length === 0) return [];
+    const isEV = evModel !== 'gas';
     
     let ageBracket: AgeBracket = 0;
     if (age >= 3 && age < 6) ageBracket = 1;
@@ -2600,7 +2662,7 @@ export default function App() {
         isAvailable: true
       };
     });
-  }, [carType, manufactureYear, carValue, age, isEV, evModel, profit, ratesData, commissionsData, orderedCompanies, currentUser, dbCarType, customDeductibles, selectedBank, bankReferralsData]);
+  }, [carType, manufactureYear, carValue, age, evModel, profit, ratesData, commissionsData, orderedCompanies, currentUser, dbCarType, customDeductibles, selectedBank, bankReferralsData]);
 
   // Display filter / sorting quotes
   const displayQuotes = useMemo(() => {
@@ -2638,10 +2700,11 @@ export default function App() {
   // Title text for the quote results block
   const titleText = useMemo(() => {
     const carTypeName = vehiclesList.find(opt => opt.id === carType)?.name || '';
+    const isEV = evModel !== 'gas';
     const evText = isEV ? ` (${EV_MODELS.find(opt => opt.id === evModel)?.name || evModel})` : '';
     const carModelText = carModel ? `${carModel} - ` : '';
     return `${carModelText}${carTypeName}${evText} - Đời ${manufactureYear} - Giá trị: ${formatCurrency(carValue)}`;
-  }, [carModel, carType, isEV, evModel, manufactureYear, carValue]);
+  }, [carModel, carType, evModel, manufactureYear, carValue]);
 
   // Download Quote Image handlers
   const handleCopyImage = async () => {
@@ -2979,12 +3042,6 @@ export default function App() {
                   >
                     Quản lý Hãng BH
                   </button>
-                  <button 
-                    onClick={() => setActiveTab('bank-referrals')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'bank-referrals' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    Quản lý Chuyên thu
-                  </button>
                 </>
               )}
             </nav>
@@ -3069,12 +3126,6 @@ export default function App() {
                   className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'companies' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
                 >
                   Hãng bảo hiểm
-                </button>
-                <button 
-                  onClick={() => setActiveTab('bank-referrals')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'bank-referrals' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
-                >
-                  Chuyên thu
                 </button>
               </>
             )}
@@ -3186,11 +3237,11 @@ export default function App() {
               </div>
 
               {/* Extra attributes input row in stable grid layout */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 {/* Column 1: Seat count / Tonnage */}
                 {showSeatCount && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Số chỗ ngồi</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Số chỗ</span>
                     <input 
                       type="number" 
                       value={seatCount}
@@ -3202,7 +3253,7 @@ export default function App() {
                 )}
                 {showTonnage && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Trọng tải (tấn)</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Trọng tải</span>
                     <input 
                       type="number" 
                       value={tonnage}
@@ -3215,7 +3266,7 @@ export default function App() {
                 )}
                 {!showSeatCount && !showTonnage && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Số chỗ / Trọng tải</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Số chỗ / Tải</span>
                     <input 
                       type="text" 
                       disabled 
@@ -3225,33 +3276,13 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Column 2: Electric engine checkbox */}
-                <div className="flex flex-col gap-1.5 justify-start">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Động cơ</span>
-                  <div className="flex items-center h-[34px] md:h-[38px]">
-                    <label className="flex items-center gap-3 cursor-pointer shrink-0">
-                      <div className="relative">
-                        <input 
-                          type="checkbox" 
-                          checked={isEV}
-                          onChange={(e) => setIsEV(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-10 h-5.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </div>
-                      <span className="text-xs font-bold text-slate-700 uppercase">Là xe điện (EV)</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Column 3: EV model select */}
+                {/* Column 2: Động cơ / Dòng xe */}
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Dòng xe điện</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Động cơ / Dòng xe</span>
                   <select 
-                    disabled={!isEV}
                     value={evModel}
                     onChange={(e) => setEvModel(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 bg-white font-bold text-xs text-slate-700 disabled:bg-slate-100 disabled:opacity-50"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 bg-white font-bold text-xs text-slate-700"
                   >
                     {EV_MODELS.map(opt => (
                       <option key={opt.id} value={opt.id}>{opt.name}</option>
@@ -3259,7 +3290,7 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* Column 4: Ngân hàng */}
+                {/* Column 3: Ngân hàng */}
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Ngân hàng vay</span>
                   <select 
@@ -3273,7 +3304,7 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* Column 5: Profit margin */}
+                {/* Column 4: Profit margin */}
                 {currentUser ? (
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận mong muốn</span>
@@ -4241,12 +4272,33 @@ export default function App() {
         {/* Tab 3: Commission Management */}
         {activeTab === 'commissions' && currentUser && (
           <div className="space-y-8 animate-in fade-in duration-200">
-            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-              <Percent size={22} className="text-blue-600" />
-              Quản lý Hoa hồng
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                <Percent size={22} className="text-blue-600" />
+                Quản lý Hoa hồng & Chuyên thu
+              </h2>
 
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+              {/* Sub-tabs header for MASTER */}
+              {currentUser.role === 'master' && (
+                <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner max-w-sm shrink-0">
+                  <button
+                    onClick={() => setCommissionsSubTab('commission')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${commissionsSubTab === 'commission' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  >
+                    Hoa hồng VCX
+                  </button>
+                  <button
+                    onClick={() => setCommissionsSubTab('bank-referrals')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${commissionsSubTab === 'bank-referrals' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  >
+                    Chuyên thu Ngân hàng
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {(commissionsSubTab === 'commission' || currentUser.role !== 'master') && (
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div className="space-y-1">
                   <h3 className="font-extrabold text-slate-800 text-base">
@@ -4509,6 +4561,193 @@ export default function App() {
                 </div>
               )}
             </div>
+          )}
+
+          {commissionsSubTab === 'bank-referrals' && currentUser.role === 'master' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Toolbar: Search, Filters, Add, and Excel Upload */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                  {/* Search & Filters */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 max-w-xl">
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm ngân hàng..."
+                      value={bankSearchQuery}
+                      onChange={(e) => setBankSearchQuery(e.target.value)}
+                      className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                    />
+                    <select
+                      value={bankFilterCompany}
+                      onChange={(e) => setBankFilterCompany(e.target.value)}
+                      className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                    >
+                      <option value="">Tất cả hãng bảo hiểm</option>
+                      {companies.map(c => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={downloadBankReferralsTemplate}
+                      className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <Download size={14} />
+                      Tải file mẫu
+                    </button>
+
+                    <input 
+                      type="file"
+                      accept=".xlsx"
+                      ref={bankReferralsFileInputRef}
+                      onChange={handleUploadBankReferralsExcel}
+                      className="hidden"
+                    />
+                    <button 
+                      onClick={() => bankReferralsFileInputRef.current?.click()}
+                      className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <Upload size={14} />
+                      Import Excel
+                    </button>
+
+                    <button
+                      onClick={handleStartAddBankRef}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-200"
+                    >
+                      <Plus size={14} />
+                      Thêm thủ công
+                    </button>
+                  </div>
+                </div>
+
+                {/* Excel Preview Notification & Action Bar */}
+                {bankReferralsPreviewData && (
+                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top-2">
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-sm text-amber-800">Chế độ Xem trước Excel Chuyên thu</h4>
+                      <p className="text-xs text-amber-700 font-semibold">
+                        Hệ thống đang hiển thị bản xem trước gồm **{bankReferralsPreviewData.length}** dòng từ file vừa chọn. Nhấp Lưu cấu hình để ghi đè dữ liệu cũ.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                      <button
+                        onClick={handleApplyBankReferralsPreview}
+                        className="flex-1 sm:flex-initial px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs transition-all"
+                      >
+                        Lưu cấu hình
+                      </button>
+                      <button
+                        onClick={handleCancelBankReferralsPreview}
+                        className="flex-1 sm:flex-initial px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs transition-all"
+                      >
+                        Huỷ bỏ
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Matrix View Container */}
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto max-h-[600px] scrollbar-thin">
+                  <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-10">
+                        <th className="p-4 w-[220px] bg-slate-50 sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r border-slate-200">Ngân hàng</th>
+                        {companies.filter(c => c.hasRates && (bankFilterCompany === '' || c.id === bankFilterCompany)).map(comp => (
+                          <th key={comp.id} className="p-4 text-center text-xs font-bold whitespace-nowrap">{comp.name}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                      {(() => {
+                        const filteredBanks = BANK_OPTIONS.slice(1).filter(bName => 
+                          bankSearchQuery === '' || bName.toLowerCase().includes(bankSearchQuery.toLowerCase())
+                        );
+
+                        if (filteredBanks.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={companies.filter(c => c.hasRates && (bankFilterCompany === '' || c.id === bankFilterCompany)).length + 1} className="p-8 text-center text-slate-400 font-bold">
+                                Không tìm thấy ngân hàng nào phù hợp
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        const getReferralRate = (bankName: string, companyId: string) => {
+                          if (bankReferralsPreviewData) {
+                            const match = bankReferralsPreviewData.find(r => r.companyVal === companyId && r.bankVal === bankName);
+                            return match ? { rate: match.rateVal, isPreview: true } : null;
+                          } else {
+                            const match = bankReferralsData.find(r => r.companyId === companyId && r.bankName === bankName);
+                            return match ? { id: match.id, rate: match.rate, isPreview: false } : null;
+                          }
+                        };
+
+                        return filteredBanks.map(bankName => (
+                          <tr key={bankName} className="hover:bg-slate-50/50 transition-colors">
+                            {/* Sticky Left Column: Bank Name */}
+                            <td className="p-4 font-bold text-slate-800 bg-white sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r border-slate-200">
+                              {bankName}
+                            </td>
+                            {companies.filter(c => c.hasRates && (bankFilterCompany === '' || c.id === bankFilterCompany)).map(comp => {
+                              const rateInfo = getReferralRate(bankName, comp.id);
+                              return (
+                                <td 
+                                  key={comp.id} 
+                                  onClick={() => {
+                                    if (bankReferralsPreviewData) return;
+                                    
+                                    if (rateInfo && !rateInfo.isPreview) {
+                                      setEditingBankRef({
+                                        id: rateInfo.id!,
+                                        companyId: comp.id,
+                                        bankName: bankName,
+                                        rate: rateInfo.rate
+                                      });
+                                      setBankRefCompanyInput(comp.id);
+                                      setBankRefNameInput(bankName);
+                                      setBankRefRateInput((rateInfo.rate * 100).toString());
+                                    } else {
+                                      setEditingBankRef(null);
+                                      setBankRefCompanyInput(comp.id);
+                                      setBankRefNameInput(bankName);
+                                      setBankRefRateInput('5');
+                                    }
+                                    setShowBankRefModal(true);
+                                  }}
+                                  className={`p-4 text-center cursor-pointer hover:bg-blue-50/50 transition-colors group relative ${rateInfo?.isPreview ? 'bg-amber-50' : ''}`}
+                                >
+                                  {rateInfo ? (
+                                    <span className={`font-black text-xs ${rateInfo.isPreview ? 'text-amber-700' : 'text-blue-600'}`}>
+                                      {(rateInfo.rate * 100).toFixed(1)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 font-normal">-</span>
+                                  )}
+                                  
+                                  {!bankReferralsPreviewData && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 p-0.5 rounded shadow z-10">
+                                      <Edit3 size={10} className="text-blue-500" />
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
           </div>
         )}
 
@@ -5091,202 +5330,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 5.5: Bank Referral Fee Management (MASTER only) */}
-        {activeTab === 'bank-referrals' && currentUser && currentUser.role === 'master' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-              <Percent size={22} className="text-blue-600" />
-              Quản lý Chuyên thu theo Ngân hàng
-            </h2>
 
-            {/* Toolbar: Search, Filters, Add, and Excel Upload */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-                {/* Search & Filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 max-w-3xl">
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm ngân hàng..."
-                    value={bankSearchQuery}
-                    onChange={(e) => setBankSearchQuery(e.target.value)}
-                    className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                  />
-                  <select
-                    value={bankFilterCompany}
-                    onChange={(e) => setBankFilterCompany(e.target.value)}
-                    className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                  >
-                    <option value="">Tất cả hãng bảo hiểm</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
-                    ))}
-                  </select>
-                  <select
-                    value={bankFilterName}
-                    onChange={(e) => setBankFilterName(e.target.value)}
-                    className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                  >
-                    <option value="">Tất cả ngân hàng</option>
-                    {BANK_OPTIONS.slice(1).map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Actions */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <input 
-                    type="file"
-                    accept=".xlsx"
-                    ref={bankReferralsFileInputRef}
-                    onChange={handleUploadBankReferralsExcel}
-                    className="hidden"
-                  />
-                  <button 
-                    onClick={() => bankReferralsFileInputRef.current?.click()}
-                    className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                  >
-                    <Upload size={14} />
-                    Import Excel
-                  </button>
-
-                  <button
-                    onClick={handleStartAddBankRef}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-200"
-                  >
-                    <Plus size={14} />
-                    Thêm cấu hình
-                  </button>
-                </div>
-              </div>
-
-              {/* Excel Preview Notification & Action Bar */}
-              {bankReferralsPreviewData && (
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top-2">
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-sm text-amber-800">Chế độ Xem trước Excel Chuyên thu</h4>
-                    <p className="text-xs text-amber-700 font-semibold">
-                      Hệ thống đang hiển thị bản xem trước gồm **{bankReferralsPreviewData.length}** dòng từ file vừa chọn. Nhấp Lưu cấu hình để ghi đè dữ liệu cũ.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                    <button
-                      onClick={handleApplyBankReferralsPreview}
-                      className="flex-1 sm:flex-initial px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs transition-all"
-                    >
-                      Lưu cấu hình
-                    </button>
-                    <button
-                      onClick={handleCancelBankReferralsPreview}
-                      className="flex-1 sm:flex-initial px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs transition-all"
-                    >
-                      Huỷ bỏ
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* List Table of bank referrals */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                      <th className="p-4">Hãng Bảo Hiểm</th>
-                      <th className="p-4">Ngân hàng</th>
-                      <th className="p-4 text-right">Tỷ lệ Chuyên thu</th>
-                      <th className="p-4 text-center">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
-                    {(() => {
-                      const list = bankReferralsPreviewData || bankReferralsData;
-                      const filtered = list.filter(item => {
-                        const matchedCompany = companies.find(c => c.id === (item.companyId || item.companyVal));
-                        const companyName = matchedCompany ? matchedCompany.name : '';
-                        const companyId = item.companyId || item.companyVal || '';
-                        const bankName = item.bankName || item.bankVal || '';
-                        
-                        const matchSearch = bankSearchQuery === '' || bankName.toLowerCase().includes(bankSearchQuery.toLowerCase());
-                        const matchCompany = bankFilterCompany === '' || companyId === bankFilterCompany;
-                        const matchBank = bankFilterName === '' || bankName === bankFilterName;
-
-                        return matchSearch && matchCompany && matchBank;
-                      });
-
-                      if (filtered.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={4} className="p-8 text-center text-slate-400 font-bold">
-                              Không tìm thấy cấu hình chuyên thu nào phù hợp
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      return filtered.map((item, idx) => {
-                        const compId = item.companyId || item.companyVal;
-                        const matchedCompany = companies.find(c => c.id === compId);
-                        const compStyle = matchedCompany ? getCompanyStyles(matchedCompany) : null;
-                        const bankName = item.bankName || item.bankVal;
-                        const rate = item.rate !== undefined ? item.rate : item.rateVal;
-
-                        return (
-                          <tr key={item.id || idx} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                {compStyle ? (
-                                  <span 
-                                    className={`inline-block px-2.5 py-0.5 rounded-xl font-bold border text-[10px] ${compStyle.bgClass} ${compStyle.textClass} ${compStyle.borderClass}`}
-                                    style={{
-                                      ...compStyle.bgStyle,
-                                      ...compStyle.textStyle,
-                                      ...compStyle.borderStyle,
-                                      backgroundColor: compStyle.isHex ? `${matchedCompany.color}15` : undefined,
-                                    }}
-                                  >
-                                    {matchedCompany.name} ({compId})
-                                  </span>
-                                ) : (
-                                  <span className="font-bold">{compId}</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="p-4 font-bold text-slate-800">{bankName}</td>
-                            <td className="p-4 text-right font-black text-blue-600 text-sm">{(rate * 100).toFixed(1)}%</td>
-                            <td className="p-4 text-center">
-                              {!bankReferralsPreviewData ? (
-                                <div className="flex items-center justify-center gap-2">
-                                  <button
-                                    onClick={() => handleStartEditBankRef(item)}
-                                    className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                    title="Sửa"
-                                  >
-                                    <Edit3 size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteBankReferral(item.id, compId, bankName)}
-                                    className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                    title="Xoá"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-[10px] font-bold text-slate-400">Xem trước</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Tab 6: Audit Log Viewer (visible to non-user roles) */}
         {activeTab === 'logs' && currentUser && currentUser.role !== 'user' && (
