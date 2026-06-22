@@ -5,7 +5,7 @@ import {
   AlertCircle, Copy, Check, Download, Loader2, Edit3, Save, RefreshCw, Users, Key,
   ChevronDown, ChevronRight, Settings, Plus, Trash2, LogOut, FileText, UserPlus, HelpCircle, LogIn, Upload
 } from 'lucide-react';
-import { toPng } from 'html-to-image';
+import { toPng, toBlob } from 'html-to-image';
 import * as XLSX from 'xlsx';
 
 type AgeBracket = 0 | 1 | 2 | 3 | 4 | 5;
@@ -2718,21 +2718,38 @@ export default function App() {
       setIsGenerating(true);
     });
     try {
-      const dataUrl = await toPng(resultsRef.current, {
+      if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
+        throw new Error('Clipboard API không được hỗ trợ hoặc trình duyệt không chạy ở chế độ bảo mật (HTTPS/localhost).');
+      }
+
+      // Khởi tạo Promise tạo Blob bằng toBlob trực tiếp để tối ưu hóa hiệu năng
+      const blobPromise = toBlob(resultsRef.current!, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
+      }).then(b => {
+        if (!b) throw new Error('Không thể tạo dữ liệu ảnh (Blob)');
+        return b;
       });
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
-      ]);
+
+      try {
+        // Thử ghi vào clipboard bằng cách truyền trực tiếp Promise (Safari & modern Chrome/Firefox/Edge)
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blobPromise })
+        ]);
+      } catch (writeErr) {
+        console.warn('Ghi clipboard dạng Promise thất bại, chuyển sang ghi Blob trực tiếp (Chrome/Firefox/Edge cũ):', writeErr);
+        // Fallback: Chờ blob hoàn thành và ghi trực tiếp
+        const blob = await blobPromise;
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+      }
+
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Copy image failed', err);
-      alert('Không thể tự động copy ảnh vào Clipboard. Vui lòng kiểm tra quyền truy cập Clipboard của trình duyệt, chạy trên HTTPS, hoặc dùng nút "Tải Ảnh".');
+      alert('Không thể tự động copy ảnh vào Clipboard. Chi tiết lỗi: ' + (err.message || err) + '\n\nHãy đảm bảo bạn đang sử dụng kết nối bảo mật HTTPS (hoặc localhost) và cấp quyền truy cập Clipboard.');
     } finally {
       setIsGenerating(false);
     }
