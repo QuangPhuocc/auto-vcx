@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -165,14 +165,118 @@ export const DEFAULT_VEHICLES: VehicleType[] = [
   { id: 'pickup_other', name: 'Xe vừa chở người vừa chở hàng khác', group: 'E. PICKUP - VAN', dbCarType: 'pickup' }
 ];
 
-let sqliteDb: Database.Database | null = null;
+const SQL = await initSqlJs();
 
-export const getSqliteDb = (): Database.Database => {
+let sqljsDbInner: any = null;
+let sqliteDb: SqlJsDatabase | null = null;
+let transactionDepth = 0;
+
+const saveDatabase = () => {
+  if (transactionDepth === 0 && sqljsDbInner) {
+    const data = sqljsDbInner.export();
+    fs.writeFileSync(SQLITE_PATH, Buffer.from(data));
+  }
+};
+
+class SqlJsStatement {
+  private stmt: any;
+  constructor(stmt: any) {
+    this.stmt = stmt;
+  }
+  
+  run(...params: any[]) {
+    if (params.length > 0) {
+      const mappedParams = params.map(p => typeof p === 'boolean' ? (p ? 1 : 0) : p);
+      this.stmt.bind(mappedParams);
+    }
+    this.stmt.step();
+    this.stmt.reset();
+    saveDatabase();
+  }
+
+  get(...params: any[]) {
+    if (params.length > 0) {
+      const mappedParams = params.map(p => typeof p === 'boolean' ? (p ? 1 : 0) : p);
+      this.stmt.bind(mappedParams);
+    }
+    const hasRow = this.stmt.step();
+    const result = hasRow ? this.stmt.getAsObject() : undefined;
+    this.stmt.reset();
+    return result;
+  }
+
+  all(...params: any[]) {
+    if (params.length > 0) {
+      const mappedParams = params.map(p => typeof p === 'boolean' ? (p ? 1 : 0) : p);
+      this.stmt.bind(mappedParams);
+    }
+    const results: any[] = [];
+    while (this.stmt.step()) {
+      results.push(this.stmt.getAsObject());
+    }
+    this.stmt.reset();
+    return results;
+  }
+}
+
+class SqlJsDatabase {
+  private db: any;
+  constructor(db: any) {
+    this.db = db;
+  }
+
+  exec(sql: string) {
+    this.db.exec(sql);
+    saveDatabase();
+  }
+
+  pragma(sql: string) {
+    try {
+      this.db.exec(`PRAGMA ${sql}`);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  prepare(sql: string) {
+    return new SqlJsStatement(this.db.prepare(sql));
+  }
+
+  transaction(fn: (...args: any[]) => any) {
+    return (...args: any[]) => {
+      transactionDepth++;
+      this.db.exec('BEGIN TRANSACTION');
+      try {
+        const result = fn(...args);
+        this.db.exec('COMMIT');
+        transactionDepth--;
+        if (transactionDepth === 0) {
+          saveDatabase();
+        }
+        return result;
+      } catch (err) {
+        this.db.exec('ROLLBACK');
+        transactionDepth--;
+        throw err;
+      }
+    };
+  }
+}
+
+export const getSqliteDb = (): SqlJsDatabase => {
   if (!sqliteDb) {
     if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
     }
-    sqliteDb = new Database(SQLITE_PATH);
+    if (fs.existsSync(SQLITE_PATH)) {
+      const filebuffer = fs.readFileSync(SQLITE_PATH);
+      sqljsDbInner = new SQL.Database(filebuffer);
+    } else {
+      sqljsDbInner = new SQL.Database();
+      const data = sqljsDbInner.export();
+      fs.writeFileSync(SQLITE_PATH, Buffer.from(data));
+    }
+    sqliteDb = new SqlJsDatabase(sqljsDbInner);
     sqliteDb.pragma('journal_mode = WAL');
     
     // Create tables
