@@ -104,27 +104,32 @@ const BANK_OPTIONS = [
 ];
 
 const getCompanyStyles = (company: { color: string; text?: string; border?: string }) => {
-  const isHex = company.color && company.color.startsWith('#');
-  if (isHex) {
-    return {
-      bgClass: '',
-      textClass: '',
-      borderClass: '',
-      bgStyle: { backgroundColor: company.color },
-      textStyle: { color: company.color },
-      borderStyle: { borderColor: `${company.color}33` },
-      isHex: true
+  let color = company.color || '#2563eb';
+  
+  if (!color.startsWith('#')) {
+    const classToHex: Record<string, string> = {
+      'bg-blue-600': '#2563eb',
+      'bg-emerald-600': '#059669',
+      'bg-orange-600': '#ea580c',
+      'bg-indigo-600': '#4f46e5',
+      'bg-red-600': '#dc2626',
+      'bg-yellow-600': '#ca8a04',
+      'bg-teal-600': '#0d9488',
+      'bg-sky-600': '#0284c7',
+      'bg-blue-800': '#1e40af',
     };
+    color = classToHex[color] || '#2563eb';
   }
-  // Fallback for old Tailwind classes
+
   return {
-    bgClass: company.color || 'bg-blue-600',
-    textClass: company.text || 'text-blue-600',
-    borderClass: company.border || 'border-blue-200',
-    bgStyle: {},
-    textStyle: {},
-    borderStyle: {},
-    isHex: false
+    color,
+    bgClass: '',
+    textClass: '',
+    borderClass: '',
+    bgStyle: { backgroundColor: color },
+    textStyle: { color: color },
+    borderStyle: { borderColor: `${color}33` },
+    isHex: true
   };
 };
 
@@ -2727,7 +2732,7 @@ export default function App() {
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       console.error('Copy image failed', err);
-      handleDownloadImage();
+      alert('Không thể tự động copy ảnh vào Clipboard. Vui lòng kiểm tra quyền truy cập Clipboard của trình duyệt, chạy trên HTTPS, hoặc dùng nút "Tải Ảnh".');
     } finally {
       setIsGenerating(false);
     }
@@ -3513,12 +3518,14 @@ export default function App() {
 
               {/* PDF/Image Generation Area */}
               <div ref={resultsRef} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 shadow-inner">
-                <div className="text-center mb-8 pb-5 border-b border-slate-200">
-                  <h2 className="text-xl font-black text-blue-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
-                  <h3 className="text-sm font-bold text-slate-500 tracking-normal normal-case">
-                    {titleText}
-                  </h3>
-                </div>
+                {viewMode !== 'agent' && (
+                  <div className="text-center mb-8 pb-5 border-b border-slate-200">
+                    <h2 className="text-xl font-black text-blue-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
+                    <h3 className="text-sm md:text-base font-extrabold text-slate-700 tracking-normal normal-case">
+                      {titleText}
+                    </h3>
+                  </div>
+                )}
                 
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -3626,30 +3633,21 @@ export default function App() {
                                       {currentUser ? (
                                         <>
                                           {showBasePremium && (
-                                            <>
-                                              <span className="text-slate-400 text-[10px] font-bold uppercase block mb-0.5">Giá bảo hiểm</span>
-                                              <div className="text-xs line-through text-slate-400 font-bold mb-2">
-                                                {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
-                                              </div>
-                                            </>
+                                            <div className="text-xs line-through text-slate-400 font-bold mb-2">
+                                              {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
+                                            </div>
                                           )}
                                           {showDiscountedPremium && (
-                                            <>
-                                              <span className="text-slate-400 text-[10px] font-bold uppercase block mb-0.5">Phí giảm còn</span>
-                                              <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
-                                                {formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
-                                              </div>
-                                            </>
+                                            <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
+                                              {formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
+                                            </div>
                                           )}
                                         </>
                                       ) : (
                                         showBasePremium && (
-                                          <>
-                                            <span className="text-slate-400 text-[10px] font-bold uppercase block mb-0.5">Giá bảo hiểm</span>
-                                            <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
-                                              {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
-                                            </div>
-                                          </>
+                                          <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
+                                            {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
+                                          </div>
                                         )
                                       )}
                                     </>
@@ -3736,7 +3734,7 @@ export default function App() {
                                 )}
                                 
                                 {showDiscountedPremium && (
-                                  <td className="p-4 text-right font-bold text-sm" style={compStyle.textStyle}>
+                                  <td className={`p-4 text-right font-bold text-sm ${compStyle.textClass}`} style={compStyle.textStyle}>
                                     {currentUser ? (
                                       isEditMode ? (
                                         <div className="flex flex-col items-end">
@@ -3848,7 +3846,7 @@ export default function App() {
                           <td colSpan={3} className="p-4 border-none text-center">
                             <div className="text-center mb-6 pb-4 border-b border-slate-200">
                               <h2 className="text-xl font-black text-rose-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
-                              <h3 className="text-sm font-bold text-slate-500 tracking-normal normal-case">
+                              <h3 className="text-sm md:text-base font-extrabold text-slate-700 tracking-normal normal-case">
                                 {titleText}
                               </h3>
                             </div>
@@ -3881,7 +3879,7 @@ export default function App() {
                                 {new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ
                               </td>
 
-                              <td className="p-4 text-right font-bold text-sm bg-rose-50/10 border-l border-rose-50/50" style={compStyle.textStyle}>
+                              <td className={`p-4 text-right font-bold text-sm bg-rose-50/10 border-l border-rose-50/50 ${compStyle.textClass}`} style={compStyle.textStyle}>
                                 {currentUser && showDiscountedPremium ? (
                                   formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))
                                 ) : (
@@ -3927,8 +3925,8 @@ export default function App() {
                         {currentUser && (
                           <tr className="border-none">
                             <td colSpan={3} className="p-4 border-none">
-                              <div className="p-4 bg-white rounded-2xl border border-rose-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all">
-                                <p className="text-center text-base md:text-lg font-black tracking-wide leading-relaxed">
+                              <div className="p-3 bg-white rounded-2xl border border-rose-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all">
+                                <p className="text-center text-xs sm:text-sm md:text-base font-black tracking-wide leading-relaxed whitespace-nowrap">
                                   <span className="text-red-600">Liên hệ Zalo: </span>
                                   <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
                                   {currentUser.phone ? (
@@ -5261,94 +5259,44 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* RGB Custom Color Picker Sliders */}
-                  <div className="space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+                  {/* Nhập mã màu HEX trực tiếp */}
+                  <div className="space-y-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                      Bộ chọn màu RGB (Kéo chọn động)
+                      Nhập mã màu của hãng (HEX)
                     </label>
-
-                    {/* Red Slider */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-bold text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-                          R (Đỏ)
-                        </span>
-                        <span className="font-mono text-red-600">{rgbColor.r}</span>
-                      </div>
+                    <div className="flex gap-2">
                       <input 
-                        type="range" 
-                        min="0" 
-                        max="255" 
-                        value={rgbColor.r}
-                        onChange={e => handleRgbChange('r', parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-gradient-to-r from-black via-red-500 to-red-600 rounded-lg appearance-none cursor-pointer accent-red-600"
+                        type="text"
+                        placeholder="VD: #2563EB"
+                        value={newCompanyColor}
+                        onChange={(e) => {
+                          setNewCompanyColor(e.target.value);
+                          setNewCompanyText('');
+                          setNewCompanyBorder('');
+                        }}
+                        className="flex-1 px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none text-xs font-semibold text-slate-800 uppercase"
+                      />
+                      <input 
+                        type="color" 
+                        value={newCompanyColor.startsWith('#') && newCompanyColor.length === 7 ? newCompanyColor : '#2563eb'}
+                        onChange={e => {
+                          setNewCompanyColor(e.target.value);
+                          setNewCompanyText('');
+                          setNewCompanyBorder('');
+                        }}
+                        className="w-10 h-10 border border-slate-300 bg-transparent cursor-pointer rounded-xl overflow-hidden shrink-0"
                       />
                     </div>
 
-                    {/* Green Slider */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-bold text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                          G (Lục)
-                        </span>
-                        <span className="font-mono text-emerald-600">{rgbColor.g}</span>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="255" 
-                        value={rgbColor.g}
-                        onChange={e => handleRgbChange('g', parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-gradient-to-r from-black via-emerald-500 to-emerald-600 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-                      />
-                    </div>
-
-                    {/* Blue Slider */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-bold text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                          B (Lam)
-                        </span>
-                        <span className="font-mono text-blue-600">{rgbColor.b}</span>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="255" 
-                        value={rgbColor.b}
-                        onChange={e => handleRgbChange('b', parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-gradient-to-r from-black via-blue-500 to-blue-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
-                    </div>
-
-                    {/* HTML5 color picker + HEX preview */}
                     <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="color" 
-                          value={newCompanyColor.startsWith('#') ? newCompanyColor : '#2563eb'}
-                          onChange={e => {
-                            setNewCompanyColor(e.target.value);
-                            setNewCompanyText('');
-                            setNewCompanyBorder('');
-                          }}
-                          className="w-8 h-8 border border-slate-300 bg-transparent cursor-pointer rounded-lg overflow-hidden shrink-0"
-                        />
-                        <span className="text-xs font-mono font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-lg uppercase">
-                          {newCompanyColor.startsWith('#') ? newCompanyColor : '#2563EB'}
-                        </span>
-                      </div>
-
+                      <span className="text-[10px] font-bold text-slate-400">Xem trước màu:</span>
                       {/* Preview Badge */}
                       <span 
                         className="inline-block px-2.5 py-0.5 rounded-xl text-[10px] font-bold border"
                         style={{
-                          backgroundColor: `${newCompanyColor}15`,
-                          color: newCompanyColor,
-                          borderColor: `${newCompanyColor}33`
+                          backgroundColor: newCompanyColor.startsWith('#') ? `${newCompanyColor}15` : undefined,
+                          color: newCompanyColor.startsWith('#') ? newCompanyColor : undefined,
+                          borderColor: newCompanyColor.startsWith('#') ? `${newCompanyColor}33` : undefined
                         }}
                       >
                         Bản xem trước
