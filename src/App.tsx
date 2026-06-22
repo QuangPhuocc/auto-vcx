@@ -355,6 +355,7 @@ export default function App() {
   const [profit, setProfit] = useState<string>('500000');
   const [isCopied, setIsCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [fallbackImageSrc, setFallbackImageSrc] = useState<string | null>(null);
   const [showRate, setShowRate] = useState(false);
   const [showCommission, setShowCommission] = useState(false);
   const [showTerms, setShowTerms] = useState(true);
@@ -5516,6 +5517,69 @@ export default function App() {
                 Lưu cấu hình
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Fallback Copy Image Modal for HTTP / Insecure Contexts */}
+      {fallbackImageSrc && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 flex flex-col my-8">
+            <div className="p-6 border-b border-slate-150 flex items-center justify-between">
+              <div>
+                <h3 className="font-black text-slate-800 text-base md:text-lg">Không thể tự động Copy ảnh</h3>
+                <p className="text-red-500 text-xs mt-1 font-bold">
+                  Trình duyệt chặn tính năng tự sao chép khi trang web chạy trên HTTP (Không bảo mật)
+                </p>
+              </div>
+              <button 
+                onClick={() => setFallbackImageSrc(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto max-h-[60vh] flex flex-col items-center">
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-xs font-semibold text-blue-800 w-full space-y-1">
+                <p className="font-bold text-sm text-blue-900">Hướng dẫn Copy thủ công:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li><strong>Máy tính:</strong> Click chuột phải vào ảnh bên dưới và chọn <strong>"Sao chép hình ảnh"</strong> (Copy image).</li>
+                  <li><strong>Điện thoại:</strong> Nhấn giữ vào ảnh bên dưới khoảng 2 giây và chọn <strong>"Sao chép"</strong> (Copy) hoặc <strong>"Lưu ảnh"</strong>.</li>
+                </ul>
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl overflow-hidden p-2 bg-slate-100 shadow-inner w-full max-w-md">
+                <img 
+                  src={fallbackImageSrc} 
+                  alt="Báo giá VCX" 
+                  className="w-full h-auto rounded-xl pointer-events-auto select-all cursor-pointer border border-white"
+                  title="Click chuột phải để copy hình ảnh này"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between gap-3">
+              <button 
+                onClick={() => {
+                  const a = document.createElement('a');
+                  a.href = fallbackImageSrc;
+                  a.download = `VCX-BaoGia-${carModel || 'Xe'}-${manufactureYear}.png`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+              >
+                Tải ảnh về máy
+              </button>
+              <button 
+                onClick={() => setFallbackImageSrc(null)}
+                className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all"
+              >
+                Đóng lại
+              </button>
+            </div>
           </div>
         </div>
       )}
