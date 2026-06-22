@@ -460,12 +460,15 @@ app.put('/api/users/:id', (req, res) => {
     user.username = username;
   }
 
+  const oldValue = JSON.parse(JSON.stringify(user));
+
   if (name) user.name = name;
   if (phone !== undefined) user.phone = phone;
   if (password) user.passwordHash = bcrypt.hashSync(password, 10);
 
   writeDb(db);
-  logAction(currentUser.id, currentUser.username, 'UPDATE_USER', `Cập nhật thông tin tài khoản: ${user.username}`);
+  const newValue = JSON.parse(JSON.stringify(user));
+  logAction(currentUser.id, currentUser.username, 'UPDATE_USER', `Cập nhật thông tin tài khoản: ${user.username}`, oldValue, newValue);
   res.json({ message: 'Cập nhật thành công' });
 });
 
@@ -567,12 +570,15 @@ app.put('/api/companies/:id', (req, res) => {
   const company = db.companies.find(c => c.id === id);
   if (!company) return res.status(404).json({ message: 'Không tìm thấy hãng' });
 
+  const oldValue = JSON.parse(JSON.stringify(company));
+
   if (name) company.name = name;
   if (color) company.color = color;
   if (hasRates !== undefined) company.hasRates = hasRates;
 
   writeDb(db);
-  logAction(currentUser.id, currentUser.username, 'UPDATE_COMPANY', `Cập nhật hãng bảo hiểm: ${id}`);
+  const newValue = JSON.parse(JSON.stringify(company));
+  logAction(currentUser.id, currentUser.username, 'UPDATE_COMPANY', `Cập nhật hãng bảo hiểm: ${id}`, oldValue, newValue);
   res.json(company);
 });
 
@@ -702,12 +708,15 @@ app.put('/api/vehicles/:id', (req, res) => {
   const vehicle = db.vehicles.find(v => v.id === id);
   if (!vehicle) return res.status(404).json({ message: 'Không tìm thấy loại xe' });
 
+  const oldValue = JSON.parse(JSON.stringify(vehicle));
+
   if (name) vehicle.name = name.trim();
   if (group) vehicle.group = group.trim();
   if (dbCarType) vehicle.dbCarType = dbCarType.trim();
 
   writeDb(db);
-  logAction(currentUser.id, currentUser.username, 'UPDATE_VEHICLE', `Cập nhật loại xe: ${id}`);
+  const newValue = JSON.parse(JSON.stringify(vehicle));
+  logAction(currentUser.id, currentUser.username, 'UPDATE_VEHICLE', `Cập nhật loại xe: ${id}`, oldValue, newValue);
   res.json(vehicle);
 });
 
@@ -836,6 +845,37 @@ app.get('/api/commissions/user/:userId', (req, res) => {
   res.json(getCommissionsForUser(userId));
 });
 
+// Get Audit Logs
+app.get('/api/logs', (req, res) => {
+  const currentUser = getAuthUser(req);
+  if (!currentUser) return res.status(401).json({ message: 'Không được cấp quyền' });
+  if (currentUser.role === 'user') {
+    return res.status(403).json({ message: 'User không được quyền xem lịch sử hệ thống' });
+  }
+  
+  const db = readDb();
+  
+  // Master sees all logs. Admin/Client see logs of themselves and their descendants
+  if (currentUser.role === 'master') {
+    return res.json(db.logs);
+  }
+  
+  // Non-master roles: Admin, Client
+  // Find all children IDs recursively
+  const getDescendantIds = (parentId: string): string[] => {
+    const children = db.users.filter(u => u.parentId === parentId);
+    let ids = children.map(c => c.id);
+    children.forEach(c => {
+      ids = [...ids, ...getDescendantIds(c.id)];
+    });
+    return ids;
+  };
+  
+  const visibleUserIds = [currentUser.id, ...getDescendantIds(currentUser.id)];
+  const filteredLogs = db.logs.filter(l => visibleUserIds.includes(l.userId));
+  res.json(filteredLogs);
+});
+
 // Edit commission for a user
 app.put('/api/commissions/user/:userId', (req, res) => {
   const currentUser = getAuthUser(req);
@@ -853,6 +893,7 @@ app.put('/api/commissions/user/:userId', (req, res) => {
 
     if (currentUser.role === 'master') {
       // MASTER sửa hoa hồng gốc của hệ thống (db.commissions)
+      const oldValue = JSON.parse(JSON.stringify(db.commissions));
       overrides.forEach((o: { carType: string, companyId: string, rate: any }) => {
         const idx = db.commissions.findIndex(c => c.carType === o.carType && c.companyId === o.companyId);
         if (idx !== -1) {
@@ -871,10 +912,12 @@ app.put('/api/commissions/user/:userId', (req, res) => {
         }
       });
       writeDb(db);
-      logAction(currentUser.id, currentUser.username, 'UPDATE_COMMISSIONS', `Master cập nhật hoa hồng mặc định hệ thống (bản thân)`);
+      const newValue = JSON.parse(JSON.stringify(db.commissions));
+      logAction(currentUser.id, currentUser.username, 'UPDATE_COMMISSIONS', `Master cập nhật hoa hồng mặc định hệ thống (bản thân)`, oldValue, newValue);
       return res.json({ message: 'Cập nhật hoa hồng mặc định thành công' });
     } else {
       // ADMIN, CLIENT sửa hoa hồng overrides của chính họ (db.userCommissions)
+      const oldValue = JSON.parse(JSON.stringify(db.userCommissions.filter(uc => uc.userId === currentUser.id)));
       overrides.forEach((o: { carType: string, companyId: string, rate: any }) => {
         const existingIndex = db.userCommissions.findIndex(uc => uc.userId === currentUser.id && uc.carType === o.carType && uc.companyId === o.companyId);
         if (existingIndex !== -1) {
@@ -901,7 +944,8 @@ app.put('/api/commissions/user/:userId', (req, res) => {
         }
       });
       writeDb(db);
-      logAction(currentUser.id, currentUser.username, 'UPDATE_COMMISSIONS', `Cập nhật hoa hồng của bản thân`);
+      const newValue = JSON.parse(JSON.stringify(db.userCommissions.filter(uc => uc.userId === currentUser.id)));
+      logAction(currentUser.id, currentUser.username, 'UPDATE_COMMISSIONS', `Cập nhật hoa hồng của bản thân`, oldValue, newValue);
       return res.json({ message: 'Cập nhật hoa hồng bản thân thành công' });
     }
   }
@@ -932,6 +976,7 @@ app.put('/api/commissions/user/:userId', (req, res) => {
   }
 
   // Apply overrides
+  const oldValue = JSON.parse(JSON.stringify(db.userCommissions.filter(uc => uc.userId === userId)));
   overrides.forEach((o: { carType: string, companyId: string, rate: any }) => {
     const existingIndex = db.userCommissions.findIndex(uc => uc.userId === userId && uc.carType === o.carType && uc.companyId === o.companyId);
     if (existingIndex !== -1) {
@@ -959,7 +1004,8 @@ app.put('/api/commissions/user/:userId', (req, res) => {
   });
 
   writeDb(db);
-  logAction(currentUser.id, currentUser.username, 'UPDATE_COMMISSIONS', `Cập nhật hoa hồng cho cấp dưới trực tiếp: ${targetUser.username}`);
+  const newValue = JSON.parse(JSON.stringify(db.userCommissions.filter(uc => uc.userId === userId)));
+  logAction(currentUser.id, currentUser.username, 'UPDATE_COMMISSIONS', `Cập nhật hoa hồng cho cấp dưới trực tiếp: ${targetUser.username}`, oldValue, newValue);
   res.json({ message: 'Cập nhật hoa hồng thành công' });
 });
 
@@ -1080,7 +1126,7 @@ app.post('/api/sync/commissions', async (req, res) => {
     });
 
     writeDb(db);
-    logAction(currentUser.id, currentUser.username, 'SYNC_COMMISSIONS', `Đồng bộ hoa hồng từ Google Sheet`);
+    logAction(currentUser.id, currentUser.username, 'SYNC_COMMISSIONS', `Đồng bộ hoa hồng từ Google Sheet`, oldCommissions, JSON.parse(JSON.stringify(db.commissions)));
     res.json({ message: 'Đồng bộ hoa hồng thành công', changes });
   } catch (err: any) {
     res.status(500).json({ message: 'Không thể đồng bộ dữ liệu: ' + err.message });
@@ -1107,6 +1153,7 @@ app.post('/api/sync/rates', async (req, res) => {
     const csvData = await response.text();
 
     const db = readDb();
+    const oldValue = JSON.parse(JSON.stringify(db.rates));
     
     // Simple parser for EV Rates
     const lines = csvData.split('\n').map(line => line.trim()).filter(Boolean);
@@ -1153,7 +1200,7 @@ app.post('/api/sync/rates', async (req, res) => {
     });
 
     writeDb(db);
-    logAction(currentUser.id, currentUser.username, 'SYNC_RATES', `Đồng bộ tỷ lệ phí từ Google Sheet`);
+    logAction(currentUser.id, currentUser.username, 'SYNC_RATES', `Đồng bộ tỷ lệ phí từ Google Sheet`, oldValue, JSON.parse(JSON.stringify(db.rates)));
     res.json({ message: 'Đồng bộ tỷ lệ phí thành công', changes });
   } catch (err: any) {
     res.status(500).json({ message: 'Không thể đồng bộ tỷ lệ phí: ' + err.message });
@@ -1653,6 +1700,7 @@ app.post('/api/sync/rates/apply', (req, res) => {
 
   try {
     const db = readDb();
+    const oldValue = JSON.parse(JSON.stringify({ rates: db.rates, commissions: db.commissions, vehicles: db.vehicles }));
     
     // Save rates
     db.rates = rates;
@@ -1715,7 +1763,8 @@ app.post('/api/sync/rates/apply', (req, res) => {
     }
 
     writeDb(db);
-    logAction(currentUser.id, currentUser.username, 'APPLY_RATES', `Đồng bộ biểu phí của các hãng bảo hiểm từ Google Sheet`);
+    const newValue = JSON.parse(JSON.stringify({ rates: db.rates, commissions: db.commissions, vehicles: db.vehicles }));
+    logAction(currentUser.id, currentUser.username, 'APPLY_RATES', `Đồng bộ biểu phí của các hãng bảo hiểm từ Google Sheet`, oldValue, newValue);
     res.json({ message: 'Đã lưu biểu phí vào cơ sở dữ liệu và áp dụng thành công!' });
   } catch (err: any) {
     res.status(500).json({ message: 'Lỗi lưu biểu phí: ' + err.message });
@@ -1739,6 +1788,7 @@ app.post('/api/ai/parse-conditions', async (req, res) => {
   }
 
   const db = readDb();
+  const oldValue = JSON.parse(JSON.stringify({ rates: db.rates, commissions: db.commissions }));
   
   // Format current state of rates/commissions for prompt context
   const companiesList = db.companies.map(c => `${c.name} (${c.id})`).join(', ');
@@ -1855,7 +1905,8 @@ Lưu ý: Không được thêm bất kì dòng text giải thích nào ngoài đ
       });
 
       writeDb(db);
-      logAction(currentUser.id, currentUser.username, 'AI_UPDATE', `Cập nhật dữ liệu bằng AI: ${text}`);
+      const newValue = JSON.parse(JSON.stringify({ rates: db.rates, commissions: db.commissions }));
+      logAction(currentUser.id, currentUser.username, 'AI_UPDATE', `Cập nhật dữ liệu bằng AI: ${text}`, oldValue, newValue);
 
       return res.json({
         status: 'success',

@@ -2,19 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+import Database from 'better-sqlite3';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DB_PATH = path.join(__dirname, 'data', 'db.json');
-
-// Ensure database directory exists
-const ensureDir = () => {
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-};
+const DB_DIR = path.join(__dirname, 'data');
+const SQLITE_PATH = path.join(DB_DIR, 'db.sqlite');
+const DB_PATH = path.join(DB_DIR, 'db.json');
 
 export interface User {
   id: string;
@@ -83,6 +78,8 @@ export interface AuditLog {
   action: string;
   details: string;
   timestamp: string;
+  oldValue?: string;
+  newValue?: string;
 }
 
 export interface VehicleType {
@@ -168,65 +165,404 @@ export const DEFAULT_VEHICLES: VehicleType[] = [
   { id: 'pickup_other', name: 'Xe vừa chở người vừa chở hàng khác', group: 'E. PICKUP - VAN', dbCarType: 'pickup' }
 ];
 
-export const readDb = (): DbSchema => {
-  ensureDir();
-  if (!fs.existsSync(DB_PATH)) {
-    const initialDb: DbSchema = {
-      users: [
-        {
-          id: 'master-id',
-          username: 'admin',
-          passwordHash: bcrypt.hashSync('0906643381@', 10),
-          role: 'master',
-          name: 'CÔNG TY CPDV THẾ GIỚI BẢO HIỂM',
-          parentId: null,
-          phone: '0906 643 381',
-          createdAt: new Date().toISOString()
-        }
-      ],
-      companies: DEFAULT_COMPANIES,
-      rates: [],
-      commissions: [],
-      userCommissions: [],
-      logs: [],
-      vehicles: DEFAULT_VEHICLES
-    };
-    writeDb(initialDb);
-    return initialDb;
-  }
-  try {
-    const data = fs.readFileSync(DB_PATH, 'utf8');
-    const db = JSON.parse(data);
-    if (!db.vehicles) {
-      db.vehicles = DEFAULT_VEHICLES;
-      writeDb(db);
+let sqliteDb: Database.Database | null = null;
+
+export const getSqliteDb = (): Database.Database => {
+  if (!sqliteDb) {
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
     }
-    return db;
+    sqliteDb = new Database(SQLITE_PATH);
+    sqliteDb.pragma('journal_mode = WAL');
+    
+    // Create tables
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE,
+        passwordHash TEXT,
+        role TEXT,
+        name TEXT,
+        phone TEXT,
+        parentId TEXT,
+        createdAt TEXT
+      );
+      CREATE TABLE IF NOT EXISTS companies (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        color TEXT,
+        text TEXT,
+        border TEXT,
+        hasRates INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS rates (
+        id TEXT PRIMARY KEY,
+        carType TEXT,
+        companyId TEXT,
+        isEV INTEGER,
+        evModel TEXT,
+        rules TEXT
+      );
+      CREATE TABLE IF NOT EXISTS commissions (
+        id TEXT PRIMARY KEY,
+        carType TEXT,
+        companyId TEXT,
+        rules TEXT
+      );
+      CREATE TABLE IF NOT EXISTS userCommissions (
+        id TEXT PRIMARY KEY,
+        userId TEXT,
+        carType TEXT,
+        companyId TEXT,
+        rate REAL,
+        rules TEXT
+      );
+      CREATE TABLE IF NOT EXISTS logs (
+        id TEXT PRIMARY KEY,
+        userId TEXT,
+        username TEXT,
+        action TEXT,
+        details TEXT,
+        timestamp TEXT,
+        oldValue TEXT,
+        newValue TEXT
+      );
+      CREATE TABLE IF NOT EXISTS vehicles (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        [group] TEXT,
+        dbCarType TEXT
+      );
+    `);
+    
+    // Check if migration is needed (table users has 0 rows and db.json exists)
+    const userCount = (sqliteDb.prepare('SELECT COUNT(*) as count FROM users').get() as any).count;
+    if (userCount === 0 && fs.existsSync(DB_PATH)) {
+      try {
+        console.log('--- DETECTED OLD DATABASE: MIGRATING TO SQLITE ---');
+        const fileData = fs.readFileSync(DB_PATH, 'utf8');
+        const dbJson = JSON.parse(fileData);
+        
+        sqliteDb.transaction(() => {
+          // Insert users
+          if (Array.isArray(dbJson.users)) {
+            const insertUser = sqliteDb!.prepare(`
+              INSERT INTO users (id, username, passwordHash, role, name, phone, parentId, createdAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+            for (const u of dbJson.users) {
+              insertUser.run(u.id, u.username, u.passwordHash, u.role, u.name, u.phone || '', u.parentId, u.createdAt);
+            }
+          }
+          
+          // Insert companies
+          if (Array.isArray(dbJson.companies)) {
+            const insertCompany = sqliteDb!.prepare(`
+              INSERT INTO companies (id, name, color, text, border, hasRates)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `);
+            for (const c of dbJson.companies) {
+              insertCompany.run(c.id, c.name, c.color, c.text || '', c.border || '', c.hasRates ? 1 : 0);
+            }
+          }
+          
+          // Insert rates
+          if (Array.isArray(dbJson.rates)) {
+            const insertRate = sqliteDb!.prepare(`
+              INSERT INTO rates (id, carType, companyId, isEV, evModel, rules)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `);
+            for (const r of dbJson.rates) {
+              insertRate.run(r.id, r.carType, r.companyId, r.isEV ? 1 : 0, r.evModel || null, JSON.stringify(r.rules));
+            }
+          }
+          
+          // Insert commissions
+          if (Array.isArray(dbJson.commissions)) {
+            const insertComm = sqliteDb!.prepare(`
+              INSERT INTO commissions (id, carType, companyId, rules)
+              VALUES (?, ?, ?, ?)
+            `);
+            for (const c of dbJson.commissions) {
+              insertComm.run(c.id, c.carType, c.companyId, JSON.stringify(c.rules));
+            }
+          }
+          
+          // Insert userCommissions
+          if (Array.isArray(dbJson.userCommissions)) {
+            const insertUserComm = sqliteDb!.prepare(`
+              INSERT INTO userCommissions (id, userId, carType, companyId, rate, rules)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `);
+            for (const uc of dbJson.userCommissions) {
+              insertUserComm.run(uc.id, uc.userId, uc.carType, uc.companyId, uc.rate !== undefined ? uc.rate : null, uc.rules ? JSON.stringify(uc.rules) : null);
+            }
+          }
+          
+          // Insert logs
+          if (Array.isArray(dbJson.logs)) {
+            const insertLog = sqliteDb!.prepare(`
+              INSERT INTO logs (id, userId, username, action, details, timestamp, oldValue, newValue)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+            for (const l of dbJson.logs) {
+              insertLog.run(l.id, l.userId, l.username, l.action, l.details, l.timestamp, l.oldValue || null, l.newValue || null);
+            }
+          }
+          
+          // Insert vehicles
+          if (Array.isArray(dbJson.vehicles)) {
+            const insertVehicle = sqliteDb!.prepare(`
+              INSERT INTO vehicles (id, name, [group], dbCarType)
+              VALUES (?, ?, ?, ?)
+            `);
+            for (const v of dbJson.vehicles) {
+              insertVehicle.run(v.id, v.name, v.group, v.dbCarType);
+            }
+          }
+        })();
+        
+        console.log('--- DATABASE MIGRATION COMPLETED SUCCESSFULLY ---');
+        fs.renameSync(DB_PATH, DB_PATH + '.bak');
+        console.log(`Renamed ${DB_PATH} to ${DB_PATH}.bak for archival.`);
+      } catch (err) {
+        console.error('Error migrating database to SQLite:', err);
+      }
+    } else if (userCount === 0) {
+      console.log('--- INITIALIZING FRESH SQLITE DATABASE ---');
+      sqliteDb.transaction(() => {
+        const insertUser = sqliteDb!.prepare(`
+          INSERT INTO users (id, username, passwordHash, role, name, phone, parentId, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        insertUser.run(
+          'master-id',
+          'admin',
+          bcrypt.hashSync('0906643381@', 10),
+          'master',
+          'CÔNG TY CPDV THẾ GIỚI BẢO HIỂM',
+          '0906 643 381',
+          null,
+          new Date().toISOString()
+        );
+        
+        const insertCompany = sqliteDb!.prepare(`
+          INSERT INTO companies (id, name, color, text, border, hasRates)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        for (const c of DEFAULT_COMPANIES) {
+          insertCompany.run(c.id, c.name, c.color, c.text || '', c.border || '', c.hasRates ? 1 : 0);
+        }
+        
+        const insertVehicle = sqliteDb!.prepare(`
+          INSERT INTO vehicles (id, name, [group], dbCarType)
+          VALUES (?, ?, ?, ?)
+        `);
+        for (const v of DEFAULT_VEHICLES) {
+          insertVehicle.run(v.id, v.name, v.group, v.dbCarType);
+        }
+      })();
+      console.log('--- FRESH DATABASE INITIALIZATION COMPLETED ---');
+    }
+  }
+  return sqliteDb;
+};
+
+export const readDb = (): DbSchema => {
+  const db = getSqliteDb();
+  try {
+    const users = db.prepare('SELECT * FROM users').all() as any[];
+    const companies = db.prepare('SELECT * FROM companies').all() as any[];
+    const rates = db.prepare('SELECT * FROM rates').all() as any[];
+    const commissions = db.prepare('SELECT * FROM commissions').all() as any[];
+    const userCommissions = db.prepare('SELECT * FROM userCommissions').all() as any[];
+    const logs = db.prepare('SELECT * FROM logs ORDER BY timestamp DESC LIMIT 1000').all() as any[];
+    const vehicles = db.prepare('SELECT * FROM vehicles').all() as any[];
+    
+    return {
+      users: users.map(u => ({
+        id: u.id,
+        username: u.username,
+        passwordHash: u.passwordHash,
+        role: u.role,
+        name: u.name,
+        phone: u.phone || undefined,
+        parentId: u.parentId || null,
+        createdAt: u.createdAt
+      })),
+      companies: companies.map(c => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        text: c.text || undefined,
+        border: c.border || undefined,
+        hasRates: c.hasRates === 1
+      })),
+      rates: rates.map(r => ({
+        id: r.id,
+        carType: r.carType,
+        companyId: r.companyId,
+        isEV: r.isEV === 1,
+        evModel: r.evModel || undefined,
+        rules: JSON.parse(r.rules)
+      })),
+      commissions: commissions.map(c => ({
+        id: c.id,
+        carType: c.carType,
+        companyId: c.companyId,
+        rules: JSON.parse(c.rules)
+      })),
+      userCommissions: userCommissions.map(uc => {
+        const item: any = {
+          id: uc.id,
+          userId: uc.userId,
+          carType: uc.carType,
+          companyId: uc.companyId
+        };
+        if (uc.rate !== null && uc.rate !== undefined) {
+          item.rate = uc.rate;
+        }
+        if (uc.rules) {
+          item.rules = JSON.parse(uc.rules);
+        }
+        return item;
+      }),
+      logs: logs.map(l => ({
+        id: l.id,
+        userId: l.userId,
+        username: l.username,
+        action: l.action,
+        details: l.details,
+        timestamp: l.timestamp,
+        oldValue: l.oldValue || undefined,
+        newValue: l.newValue || undefined
+      })),
+      vehicles: vehicles.map(v => ({
+        id: v.id,
+        name: v.name,
+        group: v.group,
+        dbCarType: v.dbCarType
+      }))
+    };
   } catch (err) {
-    console.error('Error reading database file, using fallback empty state', err);
+    console.error('Error reading from SQLite database:', err);
     return { users: [], companies: [], rates: [], commissions: [], userCommissions: [], logs: [], vehicles: [] };
   }
 };
 
-export const writeDb = (db: DbSchema) => {
-  ensureDir();
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+export const writeDb = (dbSchema: DbSchema) => {
+  const db = getSqliteDb();
+  db.transaction(() => {
+    // 1. Users
+    db.prepare('DELETE FROM users').run();
+    const insertUser = db.prepare(`
+      INSERT INTO users (id, username, passwordHash, role, name, phone, parentId, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const u of dbSchema.users) {
+      insertUser.run(u.id, u.username, u.passwordHash, u.role, u.name, u.phone || '', u.parentId, u.createdAt);
+    }
+    
+    // 2. Companies
+    db.prepare('DELETE FROM companies').run();
+    const insertCompany = db.prepare(`
+      INSERT INTO companies (id, name, color, text, border, hasRates)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    for (const c of dbSchema.companies) {
+      insertCompany.run(c.id, c.name, c.color, c.text || '', c.border || '', c.hasRates ? 1 : 0);
+    }
+    
+    // 3. Rates
+    db.prepare('DELETE FROM rates').run();
+    const insertRate = db.prepare(`
+      INSERT INTO rates (id, carType, companyId, isEV, evModel, rules)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    for (const r of dbSchema.rates) {
+      insertRate.run(r.id, r.carType, r.companyId, r.isEV ? 1 : 0, r.evModel || null, JSON.stringify(r.rules));
+    }
+    
+    // 4. Commissions
+    db.prepare('DELETE FROM commissions').run();
+    const insertComm = db.prepare(`
+      INSERT INTO commissions (id, carType, companyId, rules)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (const c of dbSchema.commissions) {
+      insertComm.run(c.id, c.carType, c.companyId, JSON.stringify(c.rules));
+    }
+    
+    // 5. UserCommissions
+    db.prepare('DELETE FROM userCommissions').run();
+    const insertUserComm = db.prepare(`
+      INSERT INTO userCommissions (id, userId, carType, companyId, rate, rules)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    for (const uc of dbSchema.userCommissions) {
+      insertUserComm.run(uc.id, uc.userId, uc.carType, uc.companyId, uc.rate !== undefined ? uc.rate : null, uc.rules ? JSON.stringify(uc.rules) : null);
+    }
+    
+    // 6. Logs
+    db.prepare('DELETE FROM logs').run();
+    const insertLog = db.prepare(`
+      INSERT INTO logs (id, userId, username, action, details, timestamp, oldValue, newValue)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const l of dbSchema.logs) {
+      insertLog.run(l.id, l.userId, l.username, l.action, l.details, l.timestamp, l.oldValue || null, l.newValue || null);
+    }
+    
+    // 7. Vehicles
+    db.prepare('DELETE FROM vehicles').run();
+    const insertVehicle = db.prepare(`
+      INSERT INTO vehicles (id, name, [group], dbCarType)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (const v of dbSchema.vehicles) {
+      insertVehicle.run(v.id, v.name, v.group, v.dbCarType);
+    }
+  })();
 };
 
-export const logAction = (userId: string, username: string, action: string, details: string) => {
-  const db = readDb();
-  const newLog: AuditLog = {
-    id: Math.random().toString(36).substring(2, 9),
-    userId,
-    username,
-    action,
-    details,
-    timestamp: new Date().toISOString()
-  };
-  db.logs.unshift(newLog);
-  // Keep only the last 1000 logs
-  if (db.logs.length > 1000) {
-    db.logs = db.logs.slice(0, 1000);
+export const logAction = (
+  userId: string,
+  username: string,
+  action: string,
+  details: string,
+  oldValue?: string | object | null,
+  newValue?: string | object | null
+) => {
+  const db = getSqliteDb();
+  try {
+    const id = Math.random().toString(36).substring(2, 9);
+    const timestamp = new Date().toISOString();
+    
+    let oldValStr: string | null = null;
+    if (oldValue !== undefined && oldValue !== null) {
+      oldValStr = typeof oldValue === 'string' ? oldValue : JSON.stringify(oldValue);
+    }
+    
+    let newValStr: string | null = null;
+    if (newValue !== undefined && newValue !== null) {
+      newValStr = typeof newValue === 'string' ? newValue : JSON.stringify(newValue);
+    }
+    
+    db.prepare(`
+      INSERT INTO logs (id, userId, username, action, details, timestamp, oldValue, newValue)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, userId, username, action, details, timestamp, oldValStr, newValStr);
+    
+    // Prune logs if count exceeds 1000
+    const logCount = (db.prepare('SELECT COUNT(*) as count FROM logs').get() as any).count;
+    if (logCount > 1000) {
+      db.prepare(`
+        DELETE FROM logs WHERE id IN (
+          SELECT id FROM logs ORDER BY timestamp ASC LIMIT ?
+        )
+      `).run(logCount - 1000);
+    }
+  } catch (err) {
+    console.error('Error logging action to SQLite:', err);
   }
-  writeDb(db);
 };
