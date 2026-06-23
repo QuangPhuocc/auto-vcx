@@ -1297,23 +1297,40 @@ export default function App() {
   // Excel template download, uploading and confirming batch creation handlers
   const downloadExcelTemplate = () => {
     const headers = [
-      ["Tên đăng nhập (username)", "Mật khẩu (password)", "Họ tên (name)", "Vai trò (role)", "Tài khoản trực thuộc (parent_username)"]
+      ["Tên đăng nhập", "Mật khẩu", "Họ tên", "Số điện thoại", "Vai trò", "Tài khoản trực thuộc"]
     ];
     
     const sampleRows = [
-      ["admin_sample", "123456", "Nguyễn Văn Admin", "admin", "master"],
-      ["client_sample", "123456", "Trần Thị Client", "client", "admin_sample"],
-      ["user_sample", "123456", "Lê Văn User", "user", "client_sample"]
+      ["quanly_sample", "123456", "Nguyễn Văn Quản Lý", "0987654321", "Quản lý", "master"],
+      ["daily_sample", "123456", "Trần Thị Đại Lý", "0912345678", "Đại lý", "quanly_sample"],
+      ["ctv_sample", "123456", "Lê Văn CTV", "0909090909", "CTV", "daily_sample"]
     ];
 
     const data = [...headers, ...sampleRows];
     const ws = XLSX.utils.aoa_to_sheet(data);
     ws['!cols'] = [
-      { wch: 25 }, // username
-      { wch: 20 }, // password
-      { wch: 25 }, // name
-      { wch: 15 }, // role
-      { wch: 30 }  // parent
+      { wch: 20 }, // Tên đăng nhập
+      { wch: 15 }, // Mật khẩu
+      { wch: 25 }, // Họ tên
+      { wch: 15 }, // Số điện thoại
+      { wch: 15 }, // Vai trò
+      { wch: 25 }  // Tài khoản trực thuộc
+    ];
+
+    // Thêm dropdown validation cho cột E (Vai trò) từ dòng 2 đến 1000
+    ws['!dataValidation'] = [
+      {
+        sqref: 'E2:E1000',
+        type: 'list',
+        allowBlank: true,
+        showInputMessage: true,
+        showErrorMessage: true,
+        errorTitle: 'Lỗi chọn vai trò',
+        error: 'Vui lòng chọn một vai trò từ danh sách (Quản lý, Đại lý, CTV)',
+        promptTitle: 'Chọn vai trò',
+        prompt: 'Chọn từ: Quản lý, Đại lý hoặc CTV',
+        formula1: '"Quản lý,Đại lý,CTV"'
+      }
     ];
 
     const wb = XLSX.utils.book_new();
@@ -1386,6 +1403,14 @@ export default function App() {
           return;
         }
 
+        const mapRoleVietnameseToEnglish = (roleStr: string): string => {
+          const val = roleStr.toLowerCase().trim();
+          if (val === 'quản lý' || val === 'quan ly') return 'admin';
+          if (val === 'đại lý' || val === 'dai ly') return 'client';
+          if (val === 'ctv') return 'user';
+          return roleStr;
+        };
+
         const dataRows = rows.slice(1);
         const parsed = dataRows.map((row) => {
           return {
@@ -1393,7 +1418,7 @@ export default function App() {
             password: row[1]?.toString().trim() || '',
             name: row[2]?.toString().trim() || '',
             phone: row[3]?.toString().trim() || '',
-            role: row[4]?.toString().trim() || '',
+            role: mapRoleVietnameseToEnglish(row[4]?.toString() || ''),
             parentUsername: row[5]?.toString().trim() || ''
           };
         }).filter(r => r.username && r.role);
@@ -2962,7 +2987,7 @@ export default function App() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Tên đăng nhập (Username)</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Tên đăng nhập</label>
                 <input 
                   type="text" 
                   value={profileUsername}
@@ -4080,18 +4105,18 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
                 
                 {/* Create Subordinate account form */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                   <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                     <UserPlus size={18} className="text-blue-600" />
-                    Tạo tài khoản cấp dưới trực tiếp
+                    Tạo tài khoản
                   </h3>
 
                   <form onSubmit={handleCreateUser} className="space-y-3.5">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tên đăng nhập (Username)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tên đăng nhập</label>
                       <input 
                         type="text" 
                         value={newUsername}
@@ -4127,7 +4152,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Số điện thoại (SĐT)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Số điện thoại</label>
                       <input 
                         type="text" 
                         value={newPhone}
@@ -4138,7 +4163,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cấp bậc (Role)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vai trò</label>
                       <select 
                         value={newRole}
                         onChange={e => setNewRole(e.target.value as any)}
@@ -4193,10 +4218,10 @@ export default function App() {
                 </div>
 
                 {/* Subordinate account table list */}
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      {currentUser.role === 'master' ? 'Tất cả nhân sự trong hệ thống' : 'Danh sách nhân sự cấp dưới trực tiếp'}
+                      Danh sách tài khoản
                     </h3>
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">{usersList.length} tài khoản</span>
                   </div>
@@ -4336,37 +4361,37 @@ export default function App() {
 
             {/* Excel Batch Creation Card */}
             {(currentUser.role === 'master' || currentUser.role === 'admin' || currentUser.role === 'client') && (
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+              <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
                   <div>
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <FileText size={18} className="text-blue-600" />
-                      Tạo tài khoản hàng loạt bằng Excel (.xlsx)
+                    <h3 className="text-xs md:text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText size={16} className="text-blue-600" />
+                      Tạo tài khoản bằng Excel
                     </h3>
-                    <p className="text-xs text-slate-500 font-semibold mt-0.5">Tải file mẫu về, nhập danh sách tài khoản rồi upload lên để tạo hàng loạt nhanh chóng.</p>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Tải file mẫu về, nhập danh sách tài khoản rồi upload lên để tạo hàng loạt.</p>
                   </div>
 
                   <button
                     onClick={downloadExcelTemplate}
                     type="button"
-                    className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs border border-blue-200 transition-all flex items-center gap-1.5 shrink-0"
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-[11px] border border-blue-200 transition-all flex items-center gap-1 shrink-0"
                   >
-                    <Download size={14} />
+                    <Download size={12} />
                     Tải Excel mẫu
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                   {/* File Upload Selector */}
-                  <div className="space-y-3">
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide">Chọn File Excel đã chỉnh sửa:</label>
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide">Chọn File Excel đã chỉnh sửa:</label>
                     <div 
                       onDragEnter={handleDrag}
                       onDragOver={handleDrag}
                       onDragLeave={handleDrag}
                       onDrop={handleDrop}
                       onClick={() => fileInputRef.current?.click()}
-                      className={`w-full py-8 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-2 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
+                      className={`w-full py-5 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
                     >
                       <input 
                         type="file" 
@@ -4375,7 +4400,7 @@ export default function App() {
                         onChange={handleExcelUpload}
                         className="hidden"
                       />
-                      <Upload className="text-slate-400" size={28} />
+                      <Upload className="text-slate-400" size={20} />
                       <div className="text-xs font-bold text-slate-700 text-center">
                         Kéo thả file Excel vào đây hoặc click để chọn tệp
                       </div>

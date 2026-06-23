@@ -377,9 +377,17 @@ app.post('/api/users/batch', (req, res) => {
       continue;
     }
 
-    const normalizedRole = role.toLowerCase().trim() as 'admin' | 'client' | 'user';
+    let normalizedRole = role.toLowerCase().trim();
+    if (normalizedRole === 'quản lý' || normalizedRole === 'quan ly') {
+      normalizedRole = 'admin';
+    } else if (normalizedRole === 'đại lý' || normalizedRole === 'dai ly') {
+      normalizedRole = 'client';
+    } else if (normalizedRole === 'ctv') {
+      normalizedRole = 'user';
+    }
+
     if (!['admin', 'client', 'user'].includes(normalizedRole)) {
-      errors.push(`Dòng ${i + 1} (@${username}): Vai trò không hợp lệ (phải là admin, client, hoặc user)`);
+      errors.push(`Dòng ${i + 1} (@${username}): Vai trò không hợp lệ (phải là Quản lý, Đại lý, hoặc CTV)`);
       continue;
     }
 
