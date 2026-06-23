@@ -455,11 +455,11 @@ export const getSqliteDb = (): SqlJsDatabase => {
         `);
         insertUser.run(
           'master-id',
-          'admin',
-          bcrypt.hashSync('0906643381@', 10),
           'master',
-          'CÔNG TY CPDV THẾ GIỚI BẢO HIỂM',
-          '0906 643 381',
+          bcrypt.hashSync('Qphuocins2104@@', 10),
+          'master',
+          'QUANG PHƯỚC',
+          '0869200835',
           null,
           new Date().toISOString()
         );

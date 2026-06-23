@@ -2820,7 +2820,9 @@ export default function App() {
                   <div className="font-bold text-slate-800 text-sm">
                     {node.name} (@{node.username}){node.phone ? ` - ${node.phone}` : ''}
                   </div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{node.role}</div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {node.role === 'master' ? 'Master' : node.role === 'admin' ? 'Quản lý' : node.role === 'client' ? 'Đại lý' : 'CTV'}
+                  </div>
                 </div>
               </div>
               
@@ -3084,7 +3086,9 @@ export default function App() {
                 <>
                   <div className="text-right hidden md:block">
                     <div className="font-bold text-slate-800 text-xs lg:text-sm whitespace-nowrap">{currentUser.name}</div>
-                    <div className="text-[9px] lg:text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">{currentUser.role === 'master' ? 'Chủ Sở Hữu' : currentUser.role}</div>
+                    <div className="text-[9px] lg:text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">
+                      {currentUser.role === 'master' ? 'Master' : currentUser.role === 'admin' ? 'Quản lý' : currentUser.role === 'client' ? 'Đại lý' : 'CTV'}
+                    </div>
                   </div>
                   <button 
                     onClick={handleOpenProfileModal}
@@ -4142,13 +4146,13 @@ export default function App() {
                       >
                         {currentUser.role === 'master' && (
                           <>
-                            <option value="admin">ADMIN</option>
-                            <option value="client">CLIENT</option>
-                            <option value="user">USER</option>
+                            <option value="admin">Quản lý</option>
+                            <option value="client">Đại lý</option>
+                            <option value="user">CTV</option>
                           </>
                         )}
-                        {currentUser.role === 'admin' && <option value="client">CLIENT</option>}
-                        {currentUser.role === 'client' && <option value="user">USER</option>}
+                        {currentUser.role === 'admin' && <option value="client">Đại lý</option>}
+                        {currentUser.role === 'client' && <option value="user">CTV</option>}
                       </select>
                     </div>
 
@@ -4245,11 +4249,12 @@ export default function App() {
                               )}
                               <td className="p-4">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  u.role === 'master' ? 'bg-purple-100 text-purple-700' :
                                   u.role === 'admin' ? 'bg-blue-100 text-blue-700' :
                                   u.role === 'client' ? 'bg-teal-100 text-teal-700' :
                                   'bg-amber-100 text-amber-700'
                                 }`}>
-                                  {u.role}
+                                  {u.role === 'master' ? 'Master' : u.role === 'admin' ? 'Quản lý' : u.role === 'client' ? 'Đại lý' : 'CTV'}
                                 </span>
                               </td>
                               {currentUser.role === 'master' && (
