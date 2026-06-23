@@ -3955,7 +3955,7 @@ export default function App() {
                           {currentUser && (
                             <tr className="bg-white border-none">
                               <td colSpan={totalColumns} className="p-4 border-t border-slate-200">
-                                <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed">
+                                <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed whitespace-nowrap">
                                   <span className="text-red-600">Liên hệ Zalo: </span>
                                   <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
                                   {currentUser.phone ? (
@@ -3971,7 +3971,7 @@ export default function App() {
                           {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
                             <tr className="border-none">
                               <td colSpan={totalColumns} className="p-0 border-none">
-                                <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider">
+                                <div className="p-3 bg-yellow-400 text-red-600 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider">
                                   TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                                 </div>
                               </td>
@@ -4072,10 +4072,10 @@ export default function App() {
                             {showDiscount && <td className="border-none"></td>}
                           </tr>
 
-                          {/* Contact Row - Centered inside colSpan 3 */}
+                          {/* Contact Row - Centered inside colSpan */}
                           {currentUser && (
                             <tr className="border-none">
-                              <td colSpan={3} className="p-4 border-none">
+                              <td colSpan={showDiscount ? 4 : 3} className="p-4 border-none">
                                 <div className="p-3 bg-white rounded-2xl border border-rose-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all">
                                   <p className="text-center text-xs sm:text-sm md:text-base font-black tracking-wide leading-relaxed whitespace-nowrap">
                                     <span className="text-red-600">Liên hệ Zalo: </span>
@@ -4089,17 +4089,15 @@ export default function App() {
                                   </p>
                                 </div>
                               </td>
-                              {showDiscount && <td className="border-none"></td>}
                             </tr>
                           )}
                           {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
                             <tr className="border-none">
-                              <td colSpan={3} className="p-4 pt-0 border-none">
-                                <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm rounded-2xl shadow-sm border border-red-700">
+                              <td colSpan={showDiscount ? 4 : 3} className="p-4 pt-0 border-none">
+                                <div className="p-3 bg-yellow-400 text-red-600 font-extrabold text-center text-xs md:text-sm rounded-2xl shadow-sm border border-yellow-500">
                                   TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                                 </div>
                               </td>
-                              {showDiscount && <td className="border-none"></td>}
                             </tr>
                           )}
                         </tbody>
@@ -4140,7 +4138,7 @@ export default function App() {
                     {/* Zalo Contact Section */}
                     {currentUser && (
                       <div className="p-4 bg-white flex items-center justify-center">
-                        <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed">
+                        <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed whitespace-nowrap">
                           <span className="text-red-600">Liên hệ Zalo: </span>
                           <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
                           {currentUser.phone ? (
@@ -4153,7 +4151,7 @@ export default function App() {
                       </div>
                     )}
                     {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
-                      <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider border-t border-red-700">
+                      <div className="p-3 bg-yellow-400 text-red-600 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider border-t border-yellow-500">
                         TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                       </div>
                     )}
