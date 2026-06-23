@@ -3671,8 +3671,8 @@ export default function App() {
                             className={`${!quote.isAvailable ? 'bg-slate-400' : compStyle.bgClass} p-4 text-white flex items-center justify-between`}
                             style={quote.isAvailable ? compStyle.bgStyle : {}}
                           >
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-extrabold text-base">{quote.company.name}</h3>
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <h3 className="font-extrabold text-base whitespace-nowrap">{quote.company.name}</h3>
                             </div>
                             {quote.isAvailable && <CheckCircle2 size={18} className="text-white/80" />}
                           </div>
@@ -3831,9 +3831,9 @@ export default function App() {
                             const compStyle = getCompanyStyles(quote.company);
                             return (
                               <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="p-4">
-                                  <div className="flex items-center gap-2">
-                                    <div className="font-extrabold text-slate-800">{quote.company.name}</div>
+                                <td className="p-4 whitespace-nowrap">
+                                  <div className="flex items-center gap-2 whitespace-nowrap">
+                                    <div className="font-extrabold text-slate-800 whitespace-nowrap">{quote.company.name}</div>
                                   </div>
                                 </td>
                                 
@@ -4020,8 +4020,8 @@ export default function App() {
                             const compStyle = getCompanyStyles(quote.company);
                             return (
                               <tr key={idx} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
-                                <td className="p-4">
-                                  <div className="font-extrabold text-slate-800">{quote.company.name}</div>
+                                <td className="p-4 whitespace-nowrap">
+                                  <div className="font-extrabold text-slate-800 whitespace-nowrap">{quote.company.name}</div>
                                 </td>
                                 
                                 <td className="p-4 text-right font-bold text-slate-800 text-sm">
