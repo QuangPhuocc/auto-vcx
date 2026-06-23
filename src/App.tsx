@@ -3805,7 +3805,7 @@ export default function App() {
                 ) : viewMode === 'table' ? (() => {
                   const totalColumns = 2 + (showBasePremium ? 1 : 0) + ((currentUser && showDiscountedPremium) ? 1 : 0) + (currentUser && showCommission ? (selectedBank !== 'Không vay ngân hàng' ? 3 : 1) : 0);
                   return (
-                    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className={`${isGenerating ? 'overflow-visible' : 'overflow-x-auto'} rounded-2xl border border-slate-200 bg-white shadow-sm`}>
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
@@ -3833,7 +3833,7 @@ export default function App() {
                               <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="p-4 whitespace-nowrap">
                                   <div className="flex items-center gap-2 whitespace-nowrap">
-                                    <div className="font-extrabold text-slate-800 whitespace-nowrap">{quote.company.name}</div>
+                                    <div className={`font-extrabold whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.company.name}</div>
                                   </div>
                                 </td>
                                 
@@ -3985,7 +3985,7 @@ export default function App() {
                   const showDiscount = !!(currentUser && showDiscountedPremium);
                   return (
                     /* viewMode === 'agent' */
-                    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
+                    <div className={`${isGenerating ? 'overflow-visible' : 'overflow-x-auto'} rounded-2xl border border-slate-200 bg-white shadow-sm p-4`}>
                       <table className="w-full text-left border-collapse table-fixed">
                         <colgroup>
                           <col className={showDiscount ? "w-[35%]" : "w-[45%]"} />
@@ -4021,7 +4021,7 @@ export default function App() {
                             return (
                               <tr key={idx} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
                                 <td className="p-4 whitespace-nowrap">
-                                  <div className="font-extrabold text-slate-800 whitespace-nowrap">{quote.company.name}</div>
+                                  <div className={`font-extrabold whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.company.name}</div>
                                 </td>
                                 
                                 <td className="p-4 text-right font-bold text-slate-800 text-sm">
