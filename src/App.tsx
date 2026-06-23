@@ -2931,7 +2931,7 @@ export default function App() {
       
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-6 right-6 z-50 max-w-md animate-in slide-in-from-top-4 duration-300">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-max max-w-[95vw] animate-in slide-in-from-bottom-4 duration-300">
           <div className={`p-4 rounded-2xl shadow-xl border flex gap-3 ${
             notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
             notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
@@ -2939,10 +2939,10 @@ export default function App() {
           }`}>
             {notification.type === 'success' ? <CheckCircle2 className="shrink-0" size={24} /> : <AlertCircle className="shrink-0" size={24} />}
             <div className="space-y-1">
-              <h4 className="font-bold text-sm">{notification.message}</h4>
+              <h4 className="font-bold text-sm whitespace-nowrap">{notification.message}</h4>
               {notification.details && notification.details.length > 0 && (
-                <ul className="list-disc pl-4 text-xs space-y-0.5 opacity-90">
-                  {notification.details.map((d, i) => <li key={i}>{d}</li>)}
+                <ul className="list-disc pl-4 text-xs space-y-0.5 opacity-90 whitespace-nowrap">
+                  {notification.details.map((d, i) => <li key={i} className="whitespace-nowrap">{d}</li>)}
                 </ul>
               )}
             </div>
@@ -3398,7 +3398,7 @@ export default function App() {
                 </div>
 
                 {/* Column 2: Profit margin */}
-                {currentUser ? (
+                {currentUser && (
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận mong muốn</span>
                     <div className="relative">
@@ -3411,16 +3411,6 @@ export default function App() {
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">VNĐ</span>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Lợi nhuận mong muốn</span>
-                    <input 
-                      type="text" 
-                      disabled 
-                      placeholder="Đăng nhập để xem"
-                      className="w-full px-3 py-2 bg-slate-100/50 rounded-xl border border-slate-200 outline-none text-xs font-semibold text-slate-400 cursor-not-allowed"
-                    />
                   </div>
                 )}
 
@@ -3813,7 +3803,7 @@ export default function App() {
                   })}
                   </div>
                 ) : viewMode === 'table' ? (() => {
-                  const totalColumns = 2 + (showBasePremium ? 1 : 0) + (showDiscountedPremium ? 1 : 0) + (currentUser && showCommission ? (selectedBank !== 'Không vay ngân hàng' ? 3 : 1) : 0);
+                  const totalColumns = 2 + (showBasePremium ? 1 : 0) + ((currentUser && showDiscountedPremium) ? 1 : 0) + (currentUser && showCommission ? (selectedBank !== 'Không vay ngân hàng' ? 3 : 1) : 0);
                   return (
                     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                       <table className="w-full text-left border-collapse">
@@ -3832,7 +3822,7 @@ export default function App() {
                                 )}
                               </>
                             )}
-                            {showDiscountedPremium && <th className="p-4 text-right">Giảm còn</th>}
+                            {(currentUser && showDiscountedPremium) && <th className="p-4 text-right">Giảm còn</th>}
                             <th className="p-4 text-right">Mức khấu trừ</th>
                           </tr>
                         </thead>
@@ -3883,32 +3873,28 @@ export default function App() {
                                   </>
                                 )}
                                 
-                                {showDiscountedPremium && (
+                                {(currentUser && showDiscountedPremium) && (
                                   <td className={`p-4 text-right font-bold text-sm ${compStyle.textClass}`} style={compStyle.textStyle}>
-                                    {currentUser ? (
-                                      isEditMode ? (
-                                        <div className="flex flex-col items-end">
-                                          <input 
-                                            type="text"
-                                            value={
-                                              customDiscountedPremiums[quote.company.id] !== undefined
-                                                ? new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id])
-                                                : (typeof quote.discountedPremium === 'string'
-                                                    ? quote.discountedPremium
-                                                    : new Intl.NumberFormat('vi-VN').format(Math.max(0, quote.discountedPremium)))
-                                            }
-                                            onChange={(e) => {
-                                              const rawVal = Number(e.target.value.replace(/\D/g, ''));
-                                              setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
-                                            }}
-                                            className="w-32 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
-                                          />
-                                        </div>
-                                      ) : (
-                                        formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))
-                                      )
+                                    {isEditMode ? (
+                                      <div className="flex flex-col items-end">
+                                        <input 
+                                          type="text"
+                                          value={
+                                            customDiscountedPremiums[quote.company.id] !== undefined
+                                              ? new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id])
+                                              : (typeof quote.discountedPremium === 'string'
+                                                  ? quote.discountedPremium
+                                                  : new Intl.NumberFormat('vi-VN').format(Math.max(0, quote.discountedPremium)))
+                                          }
+                                          onChange={(e) => {
+                                            const rawVal = Number(e.target.value.replace(/\D/g, ''));
+                                            setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
+                                          }}
+                                          className="w-32 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                        />
+                                      </div>
                                     ) : (
-                                      <span className="text-slate-400 text-xs font-semibold">Chỉ đại lý xem</span>
+                                      formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))
                                     )}
                                   </td>
                                 )}
@@ -3995,131 +3981,132 @@ export default function App() {
                       </table>
                     </div>
                   );
-                })() : (
-                  /* viewMode === 'agent' */
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
-                    <table className="w-full text-left border-collapse table-fixed">
-                      <colgroup>
-                        <col className="w-[35%]" />
-                        <col className="w-[20%]" />
-                        <col className="w-[20%]" />
-                        <col className="w-[25%]" />
-                      </colgroup>
-                      <tbody>
-                        {/* Title Row - Centered inside colSpan 3 */}
-                        <tr className="border-none">
-                          <td colSpan={3} className="p-4 border-none text-center">
-                            <div className="text-center mb-6 pb-4 border-b border-slate-200">
-                              <h2 className="text-xl font-black text-rose-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
-                              <h3 className="text-sm md:text-base font-extrabold text-slate-700 tracking-normal normal-case">
-                                {titleText}
-                              </h3>
-                            </div>
-                          </td>
-                          <td className="border-none"></td>
-                        </tr>
-
-                        {/* Headers */}
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
-                          <th className="p-4">Hãng Bảo Hiểm</th>
-                          <th className="p-4 text-right">Giá bảo hiểm</th>
-                          <th className="p-4 text-right">Mức khấu trừ</th>
-                          <th className="p-4 text-right bg-rose-50/20 border-l border-rose-100">Giảm còn</th>
-                        </tr>
-
-                        {/* Data Rows */}
-                        {displayQuotes.filter(q => q.isAvailable).map((quote, idx) => {
-                          const compStyle = getCompanyStyles(quote.company);
-                          return (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
-                              <td className="p-4">
-                                <div className="font-extrabold text-slate-800">{quote.company.name}</div>
-                              </td>
-                              
-                              <td className="p-4 text-right font-bold text-slate-800 text-sm">
-                                {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
-                              </td>
-
-                              <td className="p-4 text-right text-slate-500 font-bold text-sm">
-                                {new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ
-                              </td>
-
-                              <td className={`p-4 text-right font-bold text-sm bg-rose-50/10 border-l border-rose-50/50 ${compStyle.textClass}`} style={compStyle.textStyle}>
-                                {currentUser && showDiscountedPremium ? (
-                                  formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))
-                                ) : (
-                                  <span className="text-slate-400 text-xs font-semibold">Chỉ đại lý xem</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-
-                        {/* Quyền lợi Row - Centered inside colSpan 3 */}
-                        <tr className="border-none">
-                          <td colSpan={3} className="p-4 border-none">
-                            <div className="space-y-4 text-rose-900 bg-rose-50/20 border border-slate-100 rounded-2xl p-6">
-                              <h4 className="font-extrabold text-base flex items-center gap-2 text-rose-700">
-                                <Info size={18} className="text-rose-500" />
-                                Tóm tắt quyền lợi bảo hiểm vật chất:
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm font-semibold">
-                                <div className="space-y-2">
-                                  <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
-                                  <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                                    <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
-                                    <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
-                                    <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
-                                  </ul>
-                                </div>
-                                <div className="space-y-2">
-                                  <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
-                                  <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                                    {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
-                                    <li>Không khấu hao phụ tùng thay mới</li>
-                                    <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
-                                  </ul>
-                                </div>
+                })() : (() => {
+                  const showDiscount = !!(currentUser && showDiscountedPremium);
+                  return (
+                    /* viewMode === 'agent' */
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
+                      <table className="w-full text-left border-collapse table-fixed">
+                        <colgroup>
+                          <col className={showDiscount ? "w-[35%]" : "w-[45%]"} />
+                          <col className={showDiscount ? "w-[20%]" : "w-[25%]"} />
+                          <col className={showDiscount ? "w-[20%]" : "w-[30%]"} />
+                          {showDiscount && <col className="w-[25%]" />}
+                        </colgroup>
+                        <tbody>
+                          {/* Title Row - Centered inside colSpan 3 */}
+                          <tr className="border-none">
+                            <td colSpan={3} className="p-4 border-none text-center">
+                              <div className="text-center mb-6 pb-4 border-b border-slate-200">
+                                <h2 className="text-xl font-black text-rose-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
+                                <h3 className="text-sm md:text-base font-extrabold text-slate-700 tracking-normal normal-case">
+                                  {titleText}
+                                </h3>
                               </div>
-                            </div>
-                          </td>
-                          <td className="border-none"></td>
-                        </tr>
+                            </td>
+                            {showDiscount && <td className="border-none"></td>}
+                          </tr>
 
-                        {/* Contact Row - Centered inside colSpan 3 */}
-                        {currentUser && (
+                          {/* Headers */}
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
+                            <th className="p-4">Hãng Bảo Hiểm</th>
+                            <th className="p-4 text-right">Giá bảo hiểm</th>
+                            <th className="p-4 text-right">Mức khấu trừ</th>
+                            {showDiscount && <th className="p-4 text-right bg-rose-50/20 border-l border-rose-100">Giảm còn</th>}
+                          </tr>
+
+                          {/* Data Rows */}
+                          {displayQuotes.filter(q => q.isAvailable).map((quote, idx) => {
+                            const compStyle = getCompanyStyles(quote.company);
+                            return (
+                              <tr key={idx} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
+                                <td className="p-4">
+                                  <div className="font-extrabold text-slate-800">{quote.company.name}</div>
+                                </td>
+                                
+                                <td className="p-4 text-right font-bold text-slate-800 text-sm">
+                                  {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
+                                </td>
+
+                                <td className="p-4 text-right text-slate-500 font-bold text-sm">
+                                  {new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ
+                                </td>
+
+                                {showDiscount && (
+                                  <td className={`p-4 text-right font-bold text-sm bg-rose-50/10 border-l border-rose-50/50 ${compStyle.textClass}`} style={compStyle.textStyle}>
+                                    {formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))}
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
+
+                          {/* Quyền lợi Row - Centered inside colSpan 3 */}
                           <tr className="border-none">
                             <td colSpan={3} className="p-4 border-none">
-                              <div className="p-3 bg-white rounded-2xl border border-rose-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all">
-                                <p className="text-center text-xs sm:text-sm md:text-base font-black tracking-wide leading-relaxed whitespace-nowrap">
-                                  <span className="text-red-600">Liên hệ Zalo: </span>
-                                  <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
-                                  {currentUser.phone ? (
-                                    <>
-                                      <span className="text-slate-400"> - </span>
-                                      <span className="text-red-600">{currentUser.phone}</span>
-                                    </>
-                                  ) : ''}
-                                </p>
+                              <div className="space-y-4 text-rose-900 bg-rose-50/20 border border-slate-100 rounded-2xl p-6">
+                                <h4 className="font-extrabold text-base flex items-center gap-2 text-rose-700">
+                                  <Info size={18} className="text-rose-500" />
+                                  Tóm tắt quyền lợi bảo hiểm vật chất:
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm font-semibold">
+                                  <div className="space-y-2">
+                                    <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
+                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                      <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
+                                      <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
+                                      <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
+                                    </ul>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
+                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                      {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
+                                      <li>Không khấu hao phụ tùng thay mới</li>
+                                      <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
+                                    </ul>
+                                  </div>
+                                </div>
                               </div>
                             </td>
-                            <td className="border-none"></td>
+                            {showDiscount && <td className="border-none"></td>}
                           </tr>
-                        )}
-                        {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
-                          <tr className="border-none">
-                            <td colSpan={3} className="p-4 pt-0 border-none">
-                              <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm rounded-2xl shadow-sm border border-red-700">
-                                TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
-                              </div>
-                            </td>
-                            <td className="border-none"></td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+
+                          {/* Contact Row - Centered inside colSpan 3 */}
+                          {currentUser && (
+                            <tr className="border-none">
+                              <td colSpan={3} className="p-4 border-none">
+                                <div className="p-3 bg-white rounded-2xl border border-rose-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all">
+                                  <p className="text-center text-xs sm:text-sm md:text-base font-black tracking-wide leading-relaxed whitespace-nowrap">
+                                    <span className="text-red-600">Liên hệ Zalo: </span>
+                                    <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
+                                    {currentUser.phone ? (
+                                      <>
+                                        <span className="text-slate-400"> - </span>
+                                        <span className="text-red-600">{currentUser.phone}</span>
+                                      </>
+                                    ) : ''}
+                                  </p>
+                                </div>
+                              </td>
+                              {showDiscount && <td className="border-none"></td>}
+                            </tr>
+                          )}
+                          {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
+                            <tr className="border-none">
+                              <td colSpan={3} className="p-4 pt-0 border-none">
+                                <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm rounded-2xl shadow-sm border border-red-700">
+                                  TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
+                                </div>
+                              </td>
+                              {showDiscount && <td className="border-none"></td>}
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
 
                 {/* Combined Benefits Summary & Zalo Contact Block (for grid view) */}
                 {viewMode === 'grid' && (
