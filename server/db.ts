@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import bcrypt from 'bcryptjs';
 import initSqlJs from 'sql.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -456,7 +455,7 @@ export const getSqliteDb = (): SqlJsDatabase => {
         insertUser.run(
           'master-id',
           'master',
-          bcrypt.hashSync('Qphuocins2104@@', 10),
+          'Qphuocins2104@@',
           'master',
           'QUANG PHƯỚC',
           '0869200835',

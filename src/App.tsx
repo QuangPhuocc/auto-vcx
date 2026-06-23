@@ -3,7 +3,8 @@ import { flushSync } from 'react-dom';
 import { 
   Calculator, Car, Calendar, DollarSign, Percent, ShieldCheck, Info, CheckCircle2, 
   AlertCircle, Copy, Check, Download, Loader2, Edit3, Save, RefreshCw, Users, Key,
-  ChevronDown, ChevronRight, Settings, Plus, Trash2, LogOut, FileText, UserPlus, HelpCircle, LogIn, Upload
+  ChevronDown, ChevronRight, Settings, Plus, Trash2, LogOut, FileText, UserPlus, HelpCircle, LogIn, Upload,
+  Eye, EyeOff
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
 import * as XLSX from 'xlsx';
@@ -385,6 +386,7 @@ export default function App() {
   const [parsedExcelRows, setParsedExcelRows] = useState<any[]>([]);
   const [batchUploadErrors, setBatchUploadErrors] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Commissions Management State
@@ -4107,144 +4109,243 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
                 
-                {/* Create Subordinate account form */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <UserPlus size={18} className="text-blue-600" />
-                    Tạo tài khoản
-                  </h3>
+                {/* Left column stack: Create account + Excel import */}
+                <div className="lg:col-span-1 space-y-6 flex flex-col justify-start">
+                  
+                  {/* Create Subordinate account form */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <UserPlus size={18} className="text-blue-600" />
+                      Tạo tài khoản
+                    </h3>
 
-                  <form onSubmit={handleCreateUser} className="space-y-3.5">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tên đăng nhập</label>
-                      <input 
-                        type="text" 
-                        value={newUsername}
-                        onChange={e => setNewUsername(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                        placeholder="Tên tài khoản..."
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mật khẩu</label>
-                      <input 
-                        type="password" 
-                        value={newPassword}
-                        onChange={e => setNewPassword(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                        placeholder="Mật khẩu tài khoản..."
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Họ và tên</label>
-                      <input 
-                        type="text" 
-                        value={newName}
-                        onChange={e => setNewName(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                        placeholder="Họ và tên..."
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Số điện thoại</label>
-                      <input 
-                        type="text" 
-                        value={newPhone}
-                        onChange={e => setNewPhone(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                        placeholder="Số điện thoại..."
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vai trò</label>
-                      <select 
-                        value={newRole}
-                        onChange={e => setNewRole(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                      >
-                        {currentUser.role === 'master' && (
-                          <>
-                            <option value="admin">Quản lý</option>
-                            <option value="client">Đại lý</option>
-                            <option value="user">CTV</option>
-                          </>
-                        )}
-                        {currentUser.role === 'admin' && <option value="client">Đại lý</option>}
-                        {currentUser.role === 'client' && <option value="user">CTV</option>}
-                      </select>
-                    </div>
-
-                    {currentUser.role === 'master' && (newRole === 'client' || newRole === 'user') && (
+                    <form onSubmit={handleCreateUser} className="space-y-3.5">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tài khoản quản lý trực thuộc (Cha)</label>
-                        <select 
-                          value={selectedParentId}
-                          onChange={e => setSelectedParentId(e.target.value)}
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tên đăng nhập</label>
+                        <input 
+                          type="text" 
+                          value={newUsername}
+                          onChange={e => setNewUsername(e.target.value)}
                           required
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                          placeholder="Tên tài khoản..."
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mật khẩu</label>
+                        <input 
+                          type="password" 
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          required
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                          placeholder="Mật khẩu tài khoản..."
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Họ và tên</label>
+                        <input 
+                          type="text" 
+                          value={newName}
+                          onChange={e => setNewName(e.target.value)}
+                          required
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                          placeholder="Họ và tên..."
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Số điện thoại</label>
+                        <input 
+                          type="text" 
+                          value={newPhone}
+                          onChange={e => setNewPhone(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                          placeholder="Số điện thoại..."
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vai trò</label>
+                        <select 
+                          value={newRole}
+                          onChange={e => setNewRole(e.target.value as any)}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
                         >
-                          <option value="">-- Chọn tài khoản quản lý --</option>
-                          {newRole === 'client' && usersList.filter(u => u.role === 'admin').map(u => (
-                            <option key={u.id} value={u.id}>{u.name} (@{u.username})</option>
-                          ))}
-                          {newRole === 'user' && usersList.filter(u => u.role === 'client').map(u => (
-                            <option key={u.id} value={u.id}>{u.name} (@{u.username})</option>
-                          ))}
+                          {currentUser.role === 'master' && (
+                            <>
+                              <option value="admin">Quản lý</option>
+                              <option value="client">Đại lý</option>
+                              <option value="user">CTV</option>
+                            </>
+                          )}
+                          {currentUser.role === 'admin' && <option value="client">Đại lý</option>}
+                          {currentUser.role === 'client' && <option value="user">CTV</option>}
                         </select>
                       </div>
-                    )}
 
-                    {userCrudError && (
-                      <div className="flex items-center gap-1.5 text-red-600 text-xs font-bold bg-red-50 p-2.5 rounded-xl">
-                        <AlertCircle size={14} />
-                        <span>{userCrudError}</span>
+                      {currentUser.role === 'master' && (newRole === 'client' || newRole === 'user') && (
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tài khoản quản lý trực thuộc (Cha)</label>
+                          <select 
+                            value={selectedParentId}
+                            onChange={e => setSelectedParentId(e.target.value)}
+                            required
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                          >
+                            <option value="">-- Chọn tài khoản quản lý --</option>
+                            {newRole === 'client' && usersList.filter(u => u.role === 'admin').map(u => (
+                              <option key={u.id} value={u.id}>{u.name} (@{u.username})</option>
+                            ))}
+                            {newRole === 'user' && usersList.filter(u => u.role === 'client').map(u => (
+                              <option key={u.id} value={u.id}>{u.name} (@{u.username})</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {userCrudError && (
+                        <div className="flex items-center gap-1.5 text-red-600 text-xs font-bold bg-red-50 p-2.5 rounded-xl">
+                          <AlertCircle size={14} />
+                          <span>{userCrudError}</span>
+                        </div>
+                      )}
+
+                      <button 
+                        type="submit" 
+                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all"
+                      >
+                        Tạo tài khoản
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Excel Batch Creation Card inside Left Column */}
+                  <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex flex-col gap-3 pb-2 border-b border-slate-100">
+                      <div>
+                        <h3 className="text-xs md:text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <FileText size={16} className="text-blue-600" />
+                          Tạo tài khoản bằng Excel
+                        </h3>
+                        <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Tải file mẫu về, nhập danh sách tài khoản rồi upload lên để tạo hàng loạt.</p>
+                      </div>
+
+                      <button
+                        onClick={downloadExcelTemplate}
+                        type="button"
+                        className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs border border-blue-200 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Download size={12} />
+                        Tải Excel mẫu
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 items-start">
+                      {/* File Upload Selector */}
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide">Chọn File Excel đã chỉnh sửa:</label>
+                        <div 
+                          onDragEnter={handleDrag}
+                          onDragOver={handleDrag}
+                          onDragLeave={handleDrag}
+                          onDrop={handleDrop}
+                          onClick={() => fileInputRef.current?.click()}
+                          className={`w-full py-5 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
+                        >
+                          <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            accept=".xlsx, .xls"
+                            onChange={handleExcelUpload}
+                            className="hidden"
+                          />
+                          <Upload className="text-slate-400" size={20} />
+                          <div className="text-xs font-bold text-slate-700 text-center">
+                            Kéo thả file Excel vào đây hoặc click để chọn tệp
+                          </div>
+                          <div className="text-[10px] font-semibold text-slate-400 uppercase">
+                            Hỗ trợ định dạng .xlsx, .xls
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Parsed Rows Preview & Action */}
+                      {parsedExcelRows.length > 0 && (
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in duration-200">
+                          <div className="flex flex-col gap-2">
+                            <span className="text-xs font-bold text-slate-700">Đã đọc được {parsedExcelRows.length} tài khoản</span>
+                            <button
+                              onClick={handleConfirmBatchCreate}
+                              disabled={isUploading}
+                              type="button"
+                              className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                            >
+                              {isUploading ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
+                              Xác nhận tạo tài khoản
+                            </button>
+                          </div>
+
+                          <div className="max-h-[120px] overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 space-y-1">
+                            {parsedExcelRows.slice(0, 10).map((row, index) => (
+                              <div key={index} className="text-[10px] font-semibold text-slate-600 flex justify-between border-b border-slate-100 pb-0.5">
+                                <span>@{row.username} ({row.name})</span>
+                                <span className="text-blue-600 uppercase font-bold">{row.role} → @{row.parentUsername || 'master'}</span>
+                              </div>
+                            ))}
+                            {parsedExcelRows.length > 10 && (
+                              <div className="text-[9px] text-slate-400 text-center font-bold italic pt-1">... và {parsedExcelRows.length - 10} tài khoản khác</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Batch Upload Errors Display */}
+                    {batchUploadErrors.length > 0 && (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 animate-in fade-in duration-200">
+                        <h4 className="text-red-800 font-bold text-xs flex items-center gap-1">
+                          <AlertCircle size={14} />
+                          Có lỗi xảy ra khi tạo tài khoản hàng loạt:
+                        </h4>
+                        <ul className="list-disc pl-4 text-xs font-semibold text-red-700 space-y-1 max-h-[150px] overflow-y-auto">
+                          {batchUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
+                        </ul>
                       </div>
                     )}
-
-                    <button 
-                      type="submit" 
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all"
-                    >
-                      Tạo tài khoản
-                    </button>
-                  </form>
+                  </div>
                 </div>
 
-                {/* Subordinate account table list */}
-                <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                {/* Subordinate account table list on the right */}
+                <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col lg:h-[780px]">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Danh sách tài khoản
                     </h3>
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">{usersList.length} tài khoản</span>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                  <div className="overflow-x-auto overflow-y-auto flex-1">
+                    <table className="w-full text-left border-collapse table-auto">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                          <th className="p-4">Tài khoản</th>
-                          <th className="p-4">Họ tên</th>
-                          <th className="p-4">SĐT</th>
-                          {currentUser.role === 'master' && <th className="p-4">Mật khẩu</th>}
-                          <th className="p-4">Vai trò</th>
-                          {currentUser.role === 'master' && <th className="p-4">Trực thuộc</th>}
-                          <th className="p-4 text-right">Thao tác</th>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-10">
+                          <th className="px-3 py-3 whitespace-nowrap">Tài khoản</th>
+                          <th className="px-3 py-3 whitespace-nowrap">Họ tên</th>
+                          <th className="px-3 py-3 whitespace-nowrap">SĐT</th>
+                          {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Mật khẩu</th>}
+                          <th className="px-3 py-3 whitespace-nowrap">Vai trò</th>
+                          {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Trực thuộc</th>}
+                          <th className="px-3 py-3 whitespace-nowrap text-right">Thao tác</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
                         {usersList.length > 0 ? (
                           usersList.map(u => (
                             <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="p-4 font-bold text-slate-800">@{u.username}</td>
-                              <td className="p-4">
+                              <td className="px-3 py-2.5 whitespace-nowrap font-bold text-slate-800">@{u.username}</td>
+                              <td className="px-3 py-2.5 whitespace-nowrap">
                                 {editingUserId === u.id ? (
                                   <input 
                                     type="text"
@@ -4256,7 +4357,7 @@ export default function App() {
                                   u.name
                                 )}
                               </td>
-                              <td className="p-4">
+                              <td className="px-3 py-2.5 whitespace-nowrap">
                                 {editingUserId === u.id ? (
                                   <input 
                                     type="text"
@@ -4270,9 +4371,21 @@ export default function App() {
                                 )}
                               </td>
                               {currentUser.role === 'master' && (
-                                <td className="p-4 text-blue-600 font-mono font-bold select-all bg-blue-50/20">{u.password}</td>
+                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 bg-blue-50/20 px-2 py-1 rounded-lg border border-slate-100 font-mono font-bold text-blue-600 w-fit">
+                                    <span className="select-all">{showPasswords[u.id] ? u.password : '••••••••'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowPasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
+                                      className="text-slate-400 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer"
+                                      title={showPasswords[u.id] ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                                    >
+                                      {showPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                                    </button>
+                                  </div>
+                                </td>
                               )}
-                              <td className="p-4">
+                              <td className="px-3 py-2.5 whitespace-nowrap">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                   u.role === 'master' ? 'bg-purple-100 text-purple-700' :
                                   u.role === 'admin' ? 'bg-blue-100 text-blue-700' :
@@ -4283,7 +4396,7 @@ export default function App() {
                                 </span>
                               </td>
                               {currentUser.role === 'master' && (
-                                <td className="p-4 font-semibold text-slate-600">
+                                <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-slate-600">
                                   {u.parentUsername ? (
                                     <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-bold">
                                       @{u.parentUsername}
@@ -4293,7 +4406,7 @@ export default function App() {
                                   )}
                                 </td>
                               )}
-                              <td className="p-4 text-right">
+                              <td className="px-3 py-2.5 whitespace-nowrap text-right">
                                 {editingUserId === u.id ? (
                                   <div className="flex items-center justify-end gap-2">
                                     <input 
@@ -4349,110 +4462,13 @@ export default function App() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={currentUser.role === 'master' ? 7 : 5} className="p-8 text-center text-slate-400 font-bold">Chưa có tài khoản cấp dưới trực thuộc</td>
+                            <td colSpan={currentUser.role === 'master' ? 7 : 5} className="px-3 py-8 text-center text-slate-400 font-bold">Chưa có tài khoản cấp dưới trực thuộc</td>
                           </tr>
                         )}
                       </tbody>
                     </table>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Excel Batch Creation Card */}
-            {(currentUser.role === 'master' || currentUser.role === 'admin' || currentUser.role === 'client') && (
-              <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
-                  <div>
-                    <h3 className="text-xs md:text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <FileText size={16} className="text-blue-600" />
-                      Tạo tài khoản bằng Excel
-                    </h3>
-                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Tải file mẫu về, nhập danh sách tài khoản rồi upload lên để tạo hàng loạt.</p>
-                  </div>
-
-                  <button
-                    onClick={downloadExcelTemplate}
-                    type="button"
-                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-[11px] border border-blue-200 transition-all flex items-center gap-1 shrink-0"
-                  >
-                    <Download size={12} />
-                    Tải Excel mẫu
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                  {/* File Upload Selector */}
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide">Chọn File Excel đã chỉnh sửa:</label>
-                    <div 
-                      onDragEnter={handleDrag}
-                      onDragOver={handleDrag}
-                      onDragLeave={handleDrag}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`w-full py-5 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
-                    >
-                      <input 
-                        type="file" 
-                        ref={fileInputRef}
-                        accept=".xlsx, .xls"
-                        onChange={handleExcelUpload}
-                        className="hidden"
-                      />
-                      <Upload className="text-slate-400" size={20} />
-                      <div className="text-xs font-bold text-slate-700 text-center">
-                        Kéo thả file Excel vào đây hoặc click để chọn tệp
-                      </div>
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase">
-                        Hỗ trợ định dạng .xlsx, .xls
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Parsed Rows Preview & Action */}
-                  {parsedExcelRows.length > 0 && (
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">Đã đọc được {parsedExcelRows.length} tài khoản</span>
-                        <button
-                          onClick={handleConfirmBatchCreate}
-                          disabled={isUploading}
-                          type="button"
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1 shrink-0"
-                        >
-                          {isUploading ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
-                          Xác nhận tạo tài khoản
-                        </button>
-                      </div>
-
-                      <div className="max-h-[120px] overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 space-y-1">
-                        {parsedExcelRows.slice(0, 10).map((row, index) => (
-                          <div key={index} className="text-[10px] font-semibold text-slate-600 flex justify-between border-b border-slate-100 pb-0.5">
-                            <span>@{row.username} ({row.name})</span>
-                            <span className="text-blue-600 uppercase font-bold">{row.role} → @{row.parentUsername || 'master'}</span>
-                          </div>
-                        ))}
-                        {parsedExcelRows.length > 10 && (
-                          <div className="text-[9px] text-slate-400 text-center font-bold italic pt-1">... và {parsedExcelRows.length - 10} tài khoản khác</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Batch Upload Errors Display */}
-                {batchUploadErrors.length > 0 && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 animate-in fade-in duration-200">
-                    <h4 className="text-red-800 font-bold text-xs flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      Có lỗi xảy ra khi tạo tài khoản hàng loạt:
-                    </h4>
-                    <ul className="list-disc pl-4 text-xs font-semibold text-red-700 space-y-1 max-h-[150px] overflow-y-auto">
-                      {batchUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
 

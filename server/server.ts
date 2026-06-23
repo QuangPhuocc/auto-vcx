@@ -133,7 +133,7 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   const db = readDb();
   
   const user = db.users.find(u => u.username === username);
-  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+  if (!user || (user.passwordHash.startsWith('$2b$') ? !bcrypt.compareSync(password, user.passwordHash) : user.passwordHash !== password)) {
     return res.status(401).json({ message: 'Tên đăng nhập hoặc mật khẩu không đúng' });
   }
 
@@ -339,7 +339,7 @@ app.post('/api/users', (req, res) => {
   const newUser: User = {
     id: Math.random().toString(36).substring(2, 9),
     username,
-    passwordHash: bcrypt.hashSync(password, 10),
+    passwordHash: password,
     role,
     name,
     phone: phone || '',
@@ -455,7 +455,7 @@ app.post('/api/users/batch', (req, res) => {
     const newUser: User = {
       id: Math.random().toString(36).substring(2, 9),
       username: username.trim(),
-      passwordHash: bcrypt.hashSync(password.toString().trim(), 10),
+      passwordHash: password.toString().trim(),
       role: normalizedRole,
       name: name.trim(),
       parentId: parentId,
@@ -514,7 +514,7 @@ app.put('/api/users/:id', (req, res) => {
 
   if (name) user.name = name;
   if (phone !== undefined) user.phone = phone;
-  if (password) user.passwordHash = bcrypt.hashSync(password, 10);
+  if (password) user.passwordHash = password;
 
   writeDb(db);
   const newValue = JSON.parse(JSON.stringify(user));
