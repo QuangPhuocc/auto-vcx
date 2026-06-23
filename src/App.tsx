@@ -51,7 +51,7 @@ interface BankReferral {
   id: string;
   companyId: string;
   bankName: string;
-  rate: number;
+  rate: number | string;
 }
 
 const EV_MODELS = [
@@ -67,6 +67,7 @@ const EV_MODELS = [
 
 const BANK_OPTIONS = [
   'Không vay ngân hàng',
+  'CÔNG TY TÀI CHÍNH TOYOTA TFSVN',
   'TP BANK - VAY MỚI',
   'TP BANK - TÁI TỤC',
   'VP BANK - CÁ NHÂN',
@@ -272,7 +273,8 @@ const getEditRateValue = (val: any): string => {
   return '15.0';
 };
 
-const formatCurrency = (value: number) => {
+const formatCurrency = (value: number | string) => {
+  if (typeof value === 'string') return value;
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
@@ -987,7 +989,7 @@ export default function App() {
         if (compName === 'BẢO LONG') compId = 'BL';
         
         const match = bankReferralsData.find(b => b.companyId === compId && b.bankName === bankName);
-        row.push(match ? `${(match.rate * 100).toFixed(1)}%` : '');
+        row.push(match ? (typeof match.rate === 'string' ? match.rate : `${(Number(match.rate) * 100).toFixed(1)}%`) : '');
       });
       row.push('');
       return row;
@@ -1722,12 +1724,21 @@ export default function App() {
   // Bank Referral CRUD handlers
   const handleSaveBankReferral = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bankRefCompanyInput || !bankRefNameInput || bankRefRateInput === '') return;
+    if (!bankRefCompanyInput || !bankRefNameInput) return;
 
-    const rateVal = parseFloat(bankRefRateInput) / 100; // e.g. 5% -> 0.05
-    if (isNaN(rateVal) || rateVal < 0 || rateVal > 1) {
-      triggerNotification('error', 'Tỷ lệ chuyên thu không hợp lệ (phải từ 0% đến 100%)');
-      return;
+    const trimmedInput = bankRefRateInput.trim();
+    let rateVal: number | string = 0;
+    if (trimmedInput === 'Hết hoa hồng' || trimmedInput === '?' || trimmedInput === 'x') {
+      rateVal = trimmedInput;
+    } else if (trimmedInput === '') {
+      rateVal = 0;
+    } else {
+      const parsed = parseFloat(trimmedInput);
+      if (isNaN(parsed) || parsed < 0 || parsed > 100) {
+        triggerNotification('error', 'Tỷ lệ chuyên thu không hợp lệ (phải từ 0% đến 100%, hoặc "Hết hoa hồng", "?", "x")');
+        return;
+      }
+      rateVal = parsed / 100; // e.g. 5% -> 0.05
     }
 
     const url = editingBankRef ? `/api/bank-referrals/${editingBankRef.id}` : '/api/bank-referrals';
@@ -1770,7 +1781,7 @@ export default function App() {
     setEditingBankRef(ref);
     setBankRefCompanyInput(ref.companyId);
     setBankRefNameInput(ref.bankName);
-    setBankRefRateInput((ref.rate * 100).toString());
+    setBankRefRateInput(typeof ref.rate === 'string' ? ref.rate : (ref.rate * 100).toString());
     setShowBankRefModal(true);
   };
 
@@ -1888,32 +1899,39 @@ export default function App() {
           colMappings.forEach((mapping, colIdx) => {
             if (!mapping) return;
 
-            const cellVal = row[colIdx]?.toString().trim();
-            if (cellVal === undefined || cellVal === '') return;
+            const cellVal = row[colIdx] !== undefined && row[colIdx] !== null ? row[colIdx].toString().trim() : '';
 
-            let rateNum = NaN;
-            if (cellVal.endsWith('%')) {
-              rateNum = parseFloat(cellVal.slice(0, -1)) / 100;
+            let rateToStore: number | string = 0;
+            if (cellVal === 'Hết hoa hồng' || cellVal === '?' || cellVal === 'x') {
+              rateToStore = cellVal;
+            } else if (cellVal === '') {
+              rateToStore = 0;
             } else {
-              const parsed = parseFloat(cellVal);
-              if (!isNaN(parsed)) {
-                if (parsed > 1) {
-                  rateNum = parsed / 100;
-                } else {
-                  rateNum = parsed;
+              let rateNum = NaN;
+              if (cellVal.endsWith('%')) {
+                rateNum = parseFloat(cellVal.slice(0, -1)) / 100;
+              } else {
+                const parsed = parseFloat(cellVal);
+                if (!isNaN(parsed)) {
+                  if (parsed > 1) {
+                    rateNum = parsed / 100;
+                  } else {
+                    rateNum = parsed;
+                  }
                 }
               }
-            }
 
-            if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
-              errors.push(`Dòng ${idx + 2}, Cột '${headers[colIdx]}': Tỷ lệ chuyên thu '${cellVal}' không hợp lệ (phải từ 0% đến 100%)`);
-              return;
+              if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
+                errors.push(`Dòng ${idx + 2}, Cột '${headers[colIdx]}': Tỷ lệ chuyên thu '${cellVal}' không hợp lệ (phải từ 0% đến 100%, hoặc 'Hết hoa hồng', '?', 'x')`);
+                return;
+              }
+              rateToStore = rateNum;
             }
 
             parsedRows.push({
               companyVal: mapping.companyId,
               bankVal: matchedBank,
-              rateVal: rateNum
+              rateVal: rateToStore
             });
           });
         });
@@ -2663,21 +2681,50 @@ export default function App() {
         }
       }
 
-      let bankReferralRate = 0;
+      let bankReferralRate: number | string = 0;
+      let netCommissionRate: number | string = 0;
+      let discountedPremium: number | string = basePremium;
+
+      let isNoCommission = false;
+      let isAskCompany = false;
+      let isNoAffiliation = false;
+
       if (currentUser && selectedBank !== 'Không vay ngân hàng') {
         const refMatch = bankReferralsData.find(b => b.companyId === company.id && b.bankName === selectedBank);
         if (refMatch) {
-          bankReferralRate = refMatch.rate;
+          if (refMatch.rate === 'Hết hoa hồng') {
+            isNoCommission = true;
+            bankReferralRate = 'Hết hoa hồng';
+          } else if (refMatch.rate === '?') {
+            isAskCompany = true;
+            bankReferralRate = '?';
+          } else if (refMatch.rate === 'x') {
+            isNoAffiliation = true;
+            bankReferralRate = 'x';
+          } else {
+            bankReferralRate = Number(refMatch.rate) || 0;
+          }
         }
       }
 
-      const netCommissionRate = currentUser ? (commissionRate - bankReferralRate) : 0;
-
-      const profitValue = Number(profit) || 0;
-      let discountedPremium = basePremium;
       if (currentUser) {
-        discountedPremium = basePremium - (basePremium / 1.1 * netCommissionRate - profitValue);
-        discountedPremium = Math.ceil(discountedPremium / 50000) * 50000;
+        if (isNoCommission) {
+          netCommissionRate = 0;
+          discountedPremium = basePremium;
+        } else if (isAskCompany) {
+          netCommissionRate = commissionRate; // "hiểu Chuyên thu là 0% => net = comm - 0 = comm"
+          discountedPremium = 'Hỏi lại Tổng CTY';
+        } else if (isNoAffiliation) {
+          netCommissionRate = 'x';
+          discountedPremium = 'Không liên kết';
+        } else {
+          const numReferralRate = typeof bankReferralRate === 'number' ? bankReferralRate : 0;
+          const netComm = commissionRate - numReferralRate;
+          netCommissionRate = netComm;
+          const profitValue = Number(profit) || 0;
+          const calculatedPremium = basePremium - (basePremium / 1.1 * netComm - profitValue);
+          discountedPremium = Math.ceil(calculatedPremium / 50000) * 50000;
+        }
       }
 
       return {
@@ -2701,12 +2748,21 @@ export default function App() {
   const displayQuotes = useMemo(() => {
     let result = quotes.filter(q => selectedCompanies.includes(q.company.id) && q.isAvailable);
 
+    const getNumericPremium = (quote: any) => {
+      const customVal = customDiscountedPremiums[quote.company.id];
+      if (customVal !== undefined && customVal !== null) return customVal;
+      if (typeof quote.discountedPremium === 'number') {
+        return Math.max(0, quote.discountedPremium);
+      }
+      return Infinity;
+    };
+
     // Filter out the more expensive between PJICO (PJI) and PJICO* (PJI_STAR)
     const pjiQuote = result.find(q => q.company.id === 'PJI');
     const pjiStarQuote = result.find(q => q.company.id === 'PJI_STAR');
     if (pjiQuote && pjiStarQuote) {
-      const premPji = customDiscountedPremiums['PJI'] ?? pjiQuote.discountedPremium;
-      const premPjiStar = customDiscountedPremiums['PJI_STAR'] ?? pjiStarQuote.discountedPremium;
+      const premPji = getNumericPremium(pjiQuote);
+      const premPjiStar = getNumericPremium(pjiStarQuote);
       if (premPji < premPjiStar) {
         result = result.filter(q => q.company.id !== 'PJI_STAR');
       } else if (premPjiStar < premPji) {
@@ -2716,14 +2772,17 @@ export default function App() {
 
     if (sortBy === 'price_asc') {
       result = [...result].sort((a, b) => {
-        const valA = currentUser ? (customDiscountedPremiums[a.company.id] ?? Math.max(0, a.discountedPremium)) : (customBasePremiums[a.company.id] ?? a.basePremium);
-        const valB = currentUser ? (customDiscountedPremiums[b.company.id] ?? Math.max(0, b.discountedPremium)) : (customBasePremiums[b.company.id] ?? b.basePremium);
+        const valA = currentUser ? getNumericPremium(a) : (customBasePremiums[a.company.id] ?? a.basePremium);
+        const valB = currentUser ? getNumericPremium(b) : (customBasePremiums[b.company.id] ?? b.basePremium);
         return valA - valB;
       });
     } else if (sortBy === 'price_desc') {
       result = [...result].sort((a, b) => {
-        const valA = currentUser ? (customDiscountedPremiums[a.company.id] ?? Math.max(0, a.discountedPremium)) : (customBasePremiums[a.company.id] ?? a.basePremium);
-        const valB = currentUser ? (customDiscountedPremiums[b.company.id] ?? Math.max(0, b.discountedPremium)) : (customBasePremiums[b.company.id] ?? b.basePremium);
+        const valA = currentUser ? getNumericPremium(a) : (customBasePremiums[a.company.id] ?? a.basePremium);
+        const valB = currentUser ? getNumericPremium(b) : (customBasePremiums[b.company.id] ?? b.basePremium);
+        if (valA === Infinity && valB === Infinity) return 0;
+        if (valA === Infinity) return 1;
+        if (valB === Infinity) return -1;
         return valB - valA;
       });
     }
@@ -3225,18 +3284,41 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white font-medium text-sm text-slate-800"
                   >
                     {(() => {
+                      const recentIds = [
+                        'personal_under_9',
+                        'grab',
+                        'pickup',
+                        'tractor',
+                        'truck_non_commercial_under_10',
+                        'truck_commercial_under_10',
+                        'commercial_under_9'
+                      ];
+                      const recentOptions = recentIds
+                        .map(id => vehiclesList.find(v => v.id === id))
+                        .filter((v): v is NonNullable<typeof v> => v !== undefined);
+
                       const groups: Record<string, any[]> = {};
                       vehiclesList.forEach(opt => {
                         if (!groups[opt.group]) groups[opt.group] = [];
                         groups[opt.group].push(opt);
                       });
-                      return Object.entries(groups).map(([groupName, options]) => (
-                        <optgroup key={groupName} label={groupName}>
-                          {options.map(opt => (
-                            <option key={opt.id} value={opt.id}>{opt.name}</option>
+
+                      return (
+                        <>
+                          <optgroup label="GẦN ĐÂY">
+                            {recentOptions.map(opt => (
+                              <option key={`recent-${opt.id}`} value={opt.id}>{opt.name}</option>
+                            ))}
+                          </optgroup>
+                          {Object.entries(groups).map(([groupName, options]) => (
+                            <optgroup key={groupName} label={groupName}>
+                              {options.map(opt => (
+                                <option key={opt.id} value={opt.id}>{opt.name}</option>
+                              ))}
+                            </optgroup>
                           ))}
-                        </optgroup>
-                      ));
+                        </>
+                      );
                     })()}
                   </select>
                 </div>
@@ -3630,11 +3712,15 @@ export default function App() {
                                         <>
                                           <div className="flex justify-between items-end pb-3 border-b border-slate-100">
                                             <span className="text-slate-400 text-xs font-bold uppercase">Chuyên thu</span>
-                                            <span className="text-sm font-bold text-slate-700">{(quote.bankReferralRate * 100).toFixed(1)}%</span>
+                                            <span className="text-sm font-bold text-slate-700">
+                                              {typeof quote.bankReferralRate === 'string' ? quote.bankReferralRate : `${(quote.bankReferralRate * 100).toFixed(1)}%`}
+                                            </span>
                                           </div>
                                           <div className="flex justify-between items-end pb-3 border-b border-slate-100">
                                             <span className="text-slate-400 text-xs font-bold uppercase">Thực nhận</span>
-                                            <span className="text-sm font-black text-blue-600">{(quote.netCommissionRate * 100).toFixed(1)}%</span>
+                                            <span className="text-sm font-black text-blue-600">
+                                              {typeof quote.netCommissionRate === 'string' ? quote.netCommissionRate : `${(quote.netCommissionRate * 100).toFixed(1)}%`}
+                                            </span>
                                           </div>
                                         </>
                                       )}
@@ -3676,7 +3762,13 @@ export default function App() {
                                           <span className="text-[10px] font-bold text-slate-400 uppercase w-14 shrink-0">Giảm còn:</span>
                                           <input 
                                             type="text"
-                                            value={new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
+                                            value={
+                                              customDiscountedPremiums[quote.company.id] !== undefined
+                                                ? new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id])
+                                                : (typeof quote.discountedPremium === 'string'
+                                                    ? quote.discountedPremium
+                                                    : new Intl.NumberFormat('vi-VN').format(Math.max(0, quote.discountedPremium)))
+                                            }
                                             onChange={(e) => {
                                               const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                               setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
@@ -3697,7 +3789,7 @@ export default function App() {
                                           )}
                                           {showDiscountedPremium && (
                                             <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
-                                              {formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
+                                              {formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))}
                                             </div>
                                           )}
                                         </>
@@ -3781,10 +3873,10 @@ export default function App() {
                                     {selectedBank !== 'Không vay ngân hàng' && (
                                       <>
                                         <td className="p-4 text-right font-bold text-slate-700">
-                                          {(quote.bankReferralRate * 100).toFixed(1)}%
+                                          {typeof quote.bankReferralRate === 'string' ? quote.bankReferralRate : `${(quote.bankReferralRate * 100).toFixed(1)}%`}
                                         </td>
                                         <td className="p-4 text-right font-bold text-rose-600">
-                                          {(quote.netCommissionRate * 100).toFixed(1)}%
+                                          {typeof quote.netCommissionRate === 'string' ? quote.netCommissionRate : `${(quote.netCommissionRate * 100).toFixed(1)}%`}
                                         </td>
                                       </>
                                     )}
@@ -3798,7 +3890,13 @@ export default function App() {
                                         <div className="flex flex-col items-end">
                                           <input 
                                             type="text"
-                                            value={new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))}
+                                            value={
+                                              customDiscountedPremiums[quote.company.id] !== undefined
+                                                ? new Intl.NumberFormat('vi-VN').format(customDiscountedPremiums[quote.company.id])
+                                                : (typeof quote.discountedPremium === 'string'
+                                                    ? quote.discountedPremium
+                                                    : new Intl.NumberFormat('vi-VN').format(Math.max(0, quote.discountedPremium)))
+                                            }
                                             onChange={(e) => {
                                               const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                               setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
@@ -3807,7 +3905,7 @@ export default function App() {
                                           />
                                         </div>
                                       ) : (
-                                        formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))
+                                        formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))
                                       )
                                     ) : (
                                       <span className="text-slate-400 text-xs font-semibold">Chỉ đại lý xem</span>
@@ -3884,6 +3982,15 @@ export default function App() {
                               </td>
                             </tr>
                           )}
+                          {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
+                            <tr className="border-none">
+                              <td colSpan={totalColumns} className="p-0 border-none">
+                                <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider">
+                                  TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -3939,7 +4046,7 @@ export default function App() {
 
                               <td className={`p-4 text-right font-bold text-sm bg-rose-50/10 border-l border-rose-50/50 ${compStyle.textClass}`} style={compStyle.textStyle}>
                                 {currentUser && showDiscountedPremium ? (
-                                  formatCurrency(customDiscountedPremiums[quote.company.id] ?? Math.max(0, quote.discountedPremium))
+                                  formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))
                                 ) : (
                                   <span className="text-slate-400 text-xs font-semibold">Chỉ đại lý xem</span>
                                 )}
@@ -3999,6 +4106,16 @@ export default function App() {
                             <td className="border-none"></td>
                           </tr>
                         )}
+                        {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
+                          <tr className="border-none">
+                            <td colSpan={3} className="p-4 pt-0 border-none">
+                              <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm rounded-2xl shadow-sm border border-red-700">
+                                TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
+                              </div>
+                            </td>
+                            <td className="border-none"></td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -4048,12 +4165,17 @@ export default function App() {
                         </p>
                       </div>
                     )}
+                    {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
+                      <div className="p-3 bg-red-600 text-yellow-300 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider border-t border-red-700">
+                        TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {!isGenerating && (
-                  <div className="quote-footer text-center text-slate-400 text-xs font-bold mt-8 pt-4 border-t border-slate-200 uppercase tracking-widest">
-                    Auto insurance check v4.2026.219 -  LEPS &copy;
+                  <div className="quote-footer text-center text-slate-900 text-xs font-bold mt-8 pt-4 border-t border-slate-200">
+                    Auto insurance check v12.2026.1053 - LEPS &copy;
                   </div>
                 )}
               </div>
@@ -4919,7 +5041,7 @@ export default function App() {
                                       });
                                       setBankRefCompanyInput(comp.id);
                                       setBankRefNameInput(bankName);
-                                      setBankRefRateInput((rateInfo.rate * 100).toString());
+                                      setBankRefRateInput(typeof rateInfo.rate === 'string' ? rateInfo.rate : (rateInfo.rate * 100).toString());
                                     } else {
                                       setEditingBankRef(null);
                                       setBankRefCompanyInput(comp.id);
@@ -4932,7 +5054,7 @@ export default function App() {
                                 >
                                   {rateInfo ? (
                                     <span className={`font-black text-xs ${rateInfo.isPreview ? 'text-amber-700' : 'text-blue-600'}`}>
-                                      {(rateInfo.rate * 100).toFixed(1)}%
+                                      {typeof rateInfo.rate === 'string' ? rateInfo.rate : `${(rateInfo.rate * 100).toFixed(1)}%`}
                                     </span>
                                   ) : (
                                     <span className="text-slate-300 font-normal">-</span>

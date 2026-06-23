@@ -92,7 +92,7 @@ export interface BankReferral {
   id: string;
   companyId: string;
   bankName: string;
-  rate: number;
+  rate: number | string;
 }
 
 export interface DbSchema {

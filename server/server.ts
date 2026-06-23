@@ -21,6 +21,7 @@ const vehicles = [
 
 export const BANK_OPTIONS = [
   'Không vay ngân hàng',
+  'CÔNG TY TÀI CHÍNH TOYOTA TFSVN',
   'TP BANK - VAY MỚI',
   'TP BANK - TÁI TỤC',
   'VP BANK - CÁ NHÂN',
@@ -2087,8 +2088,17 @@ app.post('/api/bank-referrals', (req, res) => {
   const { companyId, bankName, rate } = req.body;
   const db = readDb();
 
-  if (!companyId || !bankName || rate === undefined || isNaN(Number(rate))) {
-    return res.status(400).json({ message: 'Thông tin chuyên thu không hợp lệ' });
+  let rateToStore: number | string = 0;
+  if (rate === 'Hết hoa hồng' || rate === '?' || rate === 'x') {
+    rateToStore = rate;
+  } else if (rate === '' || rate === undefined) {
+    rateToStore = 0;
+  } else {
+    const num = Number(rate);
+    if (isNaN(num) || num < 0 || num > 1) {
+      return res.status(400).json({ message: 'Thông tin chuyên thu không hợp lệ' });
+    }
+    rateToStore = num;
   }
 
   // Validate company exists
@@ -2110,14 +2120,15 @@ app.post('/api/bank-referrals', (req, res) => {
     id: Math.random().toString(36).substring(2, 9),
     companyId,
     bankName,
-    rate: Number(rate)
+    rate: rateToStore
   };
 
   if (!db.bankReferrals) db.bankReferrals = [];
   db.bankReferrals.push(newRef);
   writeDb(db);
 
-  logAction(currentUser.id, currentUser.username, 'CREATE_BANK_REFERRAL', `Thêm chuyên thu: Hãng ${companyId}, Ngân hàng ${bankName}, Tỷ lệ ${(Number(rate) * 100).toFixed(1)}%`, null, newRef);
+  const rateDesc = typeof rateToStore === 'string' ? rateToStore : `${(Number(rateToStore) * 100).toFixed(1)}%`;
+  logAction(currentUser.id, currentUser.username, 'CREATE_BANK_REFERRAL', `Thêm chuyên thu: Hãng ${companyId}, Ngân hàng ${bankName}, Tỷ lệ ${rateDesc}`, null, newRef);
 
   res.status(201).json(newRef);
 });
@@ -2139,8 +2150,17 @@ app.put('/api/bank-referrals/:id', (req, res) => {
     return res.status(404).json({ message: 'Không tìm thấy cấu hình chuyên thu ngân hàng' });
   }
 
-  if (!companyId || !bankName || rate === undefined || isNaN(Number(rate))) {
-    return res.status(400).json({ message: 'Thông tin chuyên thu không hợp lệ' });
+  let rateToStore: number | string = 0;
+  if (rate === 'Hết hoa hồng' || rate === '?' || rate === 'x') {
+    rateToStore = rate;
+  } else if (rate === '' || rate === undefined) {
+    rateToStore = 0;
+  } else {
+    const num = Number(rate);
+    if (isNaN(num) || num < 0 || num > 1) {
+      return res.status(400).json({ message: 'Thông tin chuyên thu không hợp lệ' });
+    }
+    rateToStore = num;
   }
 
   // Validate company exists
@@ -2161,11 +2181,12 @@ app.put('/api/bank-referrals/:id', (req, res) => {
   const oldValue = JSON.parse(JSON.stringify(ref));
   ref.companyId = companyId;
   ref.bankName = bankName;
-  ref.rate = Number(rate);
+  ref.rate = rateToStore;
 
   writeDb(db);
 
-  logAction(currentUser.id, currentUser.username, 'UPDATE_BANK_REFERRAL', `Cập nhật chuyên thu ID ${id}: Hãng ${companyId}, Ngân hàng ${bankName}, Tỷ lệ ${(Number(rate) * 100).toFixed(1)}%`, oldValue, ref);
+  const rateDesc = typeof rateToStore === 'string' ? rateToStore : `${(Number(rateToStore) * 100).toFixed(1)}%`;
+  logAction(currentUser.id, currentUser.username, 'UPDATE_BANK_REFERRAL', `Cập nhật chuyên thu ID ${id}: Hãng ${companyId}, Ngân hàng ${bankName}, Tỷ lệ ${rateDesc}`, oldValue, ref);
 
   res.json(ref);
 });
@@ -2190,7 +2211,8 @@ app.delete('/api/bank-referrals/:id', (req, res) => {
   db.bankReferrals.splice(refIndex, 1);
   writeDb(db);
 
-  logAction(currentUser.id, currentUser.username, 'DELETE_BANK_REFERRAL', `Xóa chuyên thu: Hãng ${ref.companyId}, Ngân hàng ${ref.bankName}, Tỷ lệ ${(ref.rate * 100).toFixed(1)}%`, ref, null);
+  const rateDesc = typeof ref.rate === 'string' ? ref.rate : `${(Number(ref.rate) * 100).toFixed(1)}%`;
+  logAction(currentUser.id, currentUser.username, 'DELETE_BANK_REFERRAL', `Xóa chuyên thu: Hãng ${ref.companyId}, Ngân hàng ${ref.bankName}, Tỷ lệ ${rateDesc}`, ref, null);
 
   res.json({ message: 'Xóa cấu hình thành công' });
 });
@@ -2240,8 +2262,8 @@ app.post('/api/bank-referrals/import', (req, res) => {
     const item = referrals[i];
     const { companyVal, bankVal, rateVal } = item;
 
-    if (!companyVal || !bankVal || rateVal === undefined) {
-      errors.push(`Dòng ${i + 1}: Thiếu thông tin bắt buộc (Hãng bảo hiểm, Ngân hàng, Tỷ lệ chuyên thu)`);
+    if (!companyVal || !bankVal) {
+      errors.push(`Dòng ${i + 1}: Thiếu thông tin bắt buộc (Hãng bảo hiểm, Ngân hàng)`);
       continue;
     }
 
@@ -2263,24 +2285,33 @@ app.post('/api/bank-referrals/import', (req, res) => {
     }
 
     // Parse rate
-    let rateNum = NaN;
-    const rateStr = rateVal.toString().trim();
-    if (rateStr.endsWith('%')) {
-      rateNum = parseFloat(rateStr.slice(0, -1)) / 100;
+    let rateToStore: number | string = 0;
+    const rateStr = rateVal !== undefined && rateVal !== null ? rateVal.toString().trim() : '';
+
+    if (rateStr === 'Hết hoa hồng' || rateStr === '?' || rateStr === 'x') {
+      rateToStore = rateStr;
+    } else if (rateStr === '') {
+      rateToStore = 0;
     } else {
-      const parsed = parseFloat(rateStr);
-      if (!isNaN(parsed)) {
-        if (parsed > 1) {
-          rateNum = parsed / 100; // e.g. 5 means 5% = 0.05
-        } else {
-          rateNum = parsed; // e.g. 0.05
+      let rateNum = NaN;
+      if (rateStr.endsWith('%')) {
+        rateNum = parseFloat(rateStr.slice(0, -1)) / 100;
+      } else {
+        const parsed = parseFloat(rateStr);
+        if (!isNaN(parsed)) {
+          if (parsed > 1) {
+            rateNum = parsed / 100; // e.g. 5 means 5% = 0.05
+          } else {
+            rateNum = parsed; // e.g. 0.05
+          }
         }
       }
-    }
 
-    if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
-      errors.push(`Dòng ${i + 1}: Tỷ lệ chuyên thu '${rateVal}' không hợp lệ (phải là số từ 0% đến 100%)`);
-      continue;
+      if (isNaN(rateNum) || rateNum < 0 || rateNum > 1) {
+        errors.push(`Dòng ${i + 1}: Tỷ lệ chuyên thu '${rateVal}' không hợp lệ (phải là số từ 0% đến 100%, hoặc 'Hết hoa hồng', '?', 'x')`);
+        continue;
+      }
+      rateToStore = rateNum;
     }
 
     // Prevent duplicates in the import batch
@@ -2293,7 +2324,7 @@ app.post('/api/bank-referrals/import', (req, res) => {
       id: Math.random().toString(36).substring(2, 9),
       companyId: company.id,
       bankName: matchedBank,
-      rate: rateNum
+      rate: rateToStore
     });
   }
 
