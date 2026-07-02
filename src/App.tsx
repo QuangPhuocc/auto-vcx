@@ -3202,6 +3202,36 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {/* Mobile Profile / Login trigger */}
+          <div className="flex lg:hidden items-center gap-2">
+            {currentUser ? (
+              <>
+                <button 
+                  onClick={handleOpenProfileModal}
+                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                  title="Hồ sơ cá nhân"
+                >
+                  <Settings size={18} />
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                  title="Đăng xuất"
+                >
+                  <LogOut size={18} />
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => setShowLoginModal(true)}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-md shadow-blue-200"
+              >
+                <LogIn size={14} />
+                Đăng nhập
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Navigation bar */}
