@@ -2811,7 +2811,7 @@ export default function App() {
 
       // Khởi tạo Promise tạo Blob bằng toBlob trực tiếp để tối ưu hóa hiệu năng
       const blobPromise = toBlob(resultsRef.current!, {
-        pixelRatio: 2,
+        pixelRatio: 4,
         backgroundColor: '#ffffff',
       }).then(b => {
         if (!b) throw new Error('Không thể tạo dữ liệu ảnh (Blob)');
@@ -2838,7 +2838,7 @@ export default function App() {
       console.error('Copy image failed, opening manual copy fallback...', err);
       try {
         const dataUrl = await toPng(resultsRef.current!, {
-          pixelRatio: 2,
+          pixelRatio: 4,
           backgroundColor: '#ffffff',
         });
         setFallbackImageSrc(dataUrl);
@@ -2858,7 +2858,7 @@ export default function App() {
     });
     try {
       const dataUrl = await toPng(resultsRef.current, {
-        pixelRatio: 2,
+        pixelRatio: 4,
         backgroundColor: '#ffffff',
       });
       const a = document.createElement('a');
@@ -3677,7 +3677,13 @@ export default function App() {
               </div>
 
               {/* PDF/Image Generation Area */}
-              <div ref={resultsRef} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 shadow-inner">
+              <div 
+                ref={resultsRef} 
+                className={`p-6 bg-slate-50 rounded-3xl border border-slate-200 shadow-inner ${
+                  isGenerating ? 'w-[1200px]' : 'w-full'
+                }`}
+                style={isGenerating ? { width: '1200px', minWidth: '1200px' } : {}}
+              >
                 {viewMode !== 'agent' && (
                   <div className="text-center mb-8 pb-5 border-b border-slate-200">
                     <h2 className="text-xl font-black text-blue-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
@@ -3688,7 +3694,13 @@ export default function App() {
                 )}
                 
                 {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <div 
+                    className={`grid gap-6 ${
+                      isGenerating 
+                        ? (displayQuotes.length <= 2 ? 'grid-cols-2' : 'grid-cols-3') 
+                        : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                    }`}
+                  >
                     {displayQuotes.map((quote, idx) => {
                       const compStyle = getCompanyStyles(quote.company);
                       return (
