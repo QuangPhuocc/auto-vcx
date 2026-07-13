@@ -61,7 +61,8 @@ const EV_MODELS = [
   { id: 'VFe34', name: 'Vinfast VF e34' },
   { id: 'VF6', name: 'Vinfast VF6 / Norio Green' },
   { id: 'VF7', name: 'Vinfast VF7 / Limo Green' },
-  { id: 'VF8_9', name: 'Vinfast VF8 / VF9' },
+  { id: 'VF8', name: 'Vinfast VF8' },
+  { id: 'VF9', name: 'Vinfast VF9' },
   { id: 'other', name: 'Xe điện khác' }
 ];
 
@@ -1590,7 +1591,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? !item.evModel : item.evModel === editEvModel))) {
+            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
           const updatedRules = [...item.rules];
           const updatedRates = [...updatedRules[ruleIndex].rates] as number[];
           updatedRates[ageBracket] = newValue;
@@ -1994,7 +1995,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? !item.evModel : item.evModel === editEvModel))) {
+            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
           const updatedRules = [...item.rules];
           updatedRules[ruleIndex] = {
             ...updatedRules[ruleIndex],
@@ -2018,7 +2019,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? !item.evModel : item.evModel === editEvModel))) {
+            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
           const updatedRules = [...item.rules];
           updatedRules[ruleIndex] = {
             ...updatedRules[ruleIndex],
@@ -2042,7 +2043,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? !item.evModel : item.evModel === editEvModel))) {
+            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
           const updatedRules = [...item.rules];
           const updatedRates = [...updatedRules[ruleIndex].rates] as number[];
           updatedRates[ageBracket] = newValue;
@@ -2070,7 +2071,7 @@ export default function App() {
     }
 
     const headers = [
-      "HÃNG", "Động cơ", "Mã Loại xe", "Loại xe / Nghiệp vụ", "Giá trị xe (triệu)", 
+      "HÃNG", "Động cơ", "Dòng xe", "Mã Loại xe", "Loại xe / Nghiệp vụ", "Giá trị xe (triệu)", 
       "< 3 năm", "3 - 6 năm", "6 - 10 năm", "10 - 15 năm", "15 - 20 năm", "> 20 năm", "Phí tối thiểu", "Mức khấu trừ"
     ];
 
@@ -2100,6 +2101,7 @@ export default function App() {
         rows.push([
           companyName,
           engineType,
+          'Mọi dòng xe',
           groupLetter,
           groupName,
           '',
@@ -2123,9 +2125,8 @@ export default function App() {
           
           if (matches.length > 0) {
             matches.forEach(match => {
-              const usedEngineType = isEV 
-                ? (match.evModel ? `Điện (${match.evModel})` : 'Điện')
-                : 'Xăng';
+              const usedEngineType = isEV ? 'Điện' : 'Xăng';
+              const usedEvModel = isEV ? (match.evModel || 'Mọi dòng xe') : 'Mọi dòng xe';
                 
               match.rules.forEach(subRule => {
                 const limitText = subRule.maxVal === null 
@@ -2135,6 +2136,7 @@ export default function App() {
                 rows.push([
                   comp.id, // Write exact company ID to make import 100% robust
                   usedEngineType,
+                  usedEvModel,
                   code,
                   vehicle.name,
                   limitText,
@@ -2153,6 +2155,7 @@ export default function App() {
             rows.push([
               comp.id,
               engineType,
+              'Mọi dòng xe',
               code,
               vehicle.name,
               'Mọi giá trị',
@@ -2263,8 +2266,14 @@ export default function App() {
           dataRows.forEach((row) => {
             const rawCompanyVal = row[0]?.toString().trim();
             const engineText = row[1]?.toString().trim() || 'Xăng';
-            const codeVal = row[2]?.toString().trim() || '';
-            const vehicleNameText = row[3]?.toString().trim();
+
+            // Auto-detect format: if column 2 matches category codes (like A1, B15), it is the old format
+            const rawVal2 = row[2]?.toString().trim() || '';
+            const isNewFormat = !(/^[A-E]\d+$/i.test(rawVal2) || (rawVal2.length === 1 && /^[A-E]$/i.test(rawVal2)));
+
+            const rawEvModel = isNewFormat ? rawVal2 : '';
+            const codeVal = (isNewFormat ? row[3] : row[2])?.toString().trim() || '';
+            const vehicleNameText = (isNewFormat ? row[4] : row[3])?.toString().trim();
             
             // Sequential group header row tracking
             if (codeVal && codeVal.length === 1 && vehicleNameText) {
@@ -2343,35 +2352,68 @@ export default function App() {
             const isEVVal = engineText.toLowerCase().includes('điện') || engineText.toLowerCase().includes('ev') || engineText.toLowerCase().includes('có');
             let evModelVal: string | null = null;
             if (isEVVal) {
-              const matchedModel = EV_MODELS.find(m => engineText.toUpperCase().includes(m.id.toUpperCase()));
-              if (matchedModel) {
-                evModelVal = matchedModel.id;
+              if (isNewFormat) {
+                const cleanModel = rawEvModel.trim();
+                if (cleanModel && cleanModel !== 'Mọi dòng xe' && cleanModel !== '-') {
+                  const matchedModel = EV_MODELS.find(m => cleanModel.toUpperCase().includes(m.id.toUpperCase()));
+                  if (matchedModel) {
+                    evModelVal = matchedModel.id;
+                  } else {
+                    if (cleanModel.includes('VF8')) {
+                      evModelVal = 'VF8';
+                    } else if (cleanModel.includes('VF9')) {
+                      evModelVal = 'VF9';
+                    } else if (cleanModel.includes('VF5')) {
+                      evModelVal = 'VF5';
+                    } else if (cleanModel.includes('VF3')) {
+                      evModelVal = 'VF3';
+                    } else if (cleanModel.includes('e34')) {
+                      evModelVal = 'VFe34';
+                    } else if (cleanModel.includes('VF6')) {
+                      evModelVal = 'VF6';
+                    } else if (cleanModel.includes('VF7')) {
+                      evModelVal = 'VF7';
+                    } else {
+                      evModelVal = cleanModel;
+                    }
+                  }
+                } else {
+                  evModelVal = null;
+                }
               } else {
-                if (engineText.includes('VF8') || engineText.includes('VF9')) {
-                  evModelVal = 'VF8_9';
-                } else if (engineText.includes('VF5')) {
-                  evModelVal = 'VF5';
-                } else if (engineText.includes('VF3')) {
-                  evModelVal = 'VF3';
-                } else if (engineText.includes('e34')) {
-                  evModelVal = 'VFe34';
-                } else if (engineText.includes('VF6')) {
-                  evModelVal = 'VF6';
-                } else if (engineText.includes('VF7')) {
-                  evModelVal = 'VF7';
+                // Old format fallback: parse model from engineText column
+                const matchedModel = EV_MODELS.find(m => engineText.toUpperCase().includes(m.id.toUpperCase()));
+                if (matchedModel) {
+                  evModelVal = matchedModel.id;
+                } else {
+                  if (engineText.includes('VF8')) {
+                    evModelVal = 'VF8';
+                  } else if (engineText.includes('VF9')) {
+                    evModelVal = 'VF9';
+                  } else if (engineText.includes('VF5')) {
+                    evModelVal = 'VF5';
+                  } else if (engineText.includes('VF3')) {
+                    evModelVal = 'VF3';
+                  } else if (engineText.includes('e34')) {
+                    evModelVal = 'VFe34';
+                  } else if (engineText.includes('VF6')) {
+                    evModelVal = 'VF6';
+                  } else if (engineText.includes('VF7')) {
+                    evModelVal = 'VF7';
+                  }
                 }
               }
             }
 
-            const maxValVal = parseMaxVal(row[4]);
-            const rate0 = parseRateValue(row[5]);
-            const rate1 = parseRateValue(row[6]);
-            const rate2 = parseRateValue(row[7]);
-            const rate3 = parseRateValue(row[8]);
-            const rate4 = parseRateValue(row[9]);
-            const rate5 = parseRateValue(row[10]);
-            const minPremiumVal = parseNumeric(row[11]);
-            const deductibleVal = parseNumeric(row[12]);
+            const maxValVal = parseMaxVal(isNewFormat ? row[5] : row[4]);
+            const rate0 = parseRateValue(isNewFormat ? row[6] : row[5]);
+            const rate1 = parseRateValue(isNewFormat ? row[7] : row[6]);
+            const rate2 = parseRateValue(isNewFormat ? row[8] : row[7]);
+            const rate3 = parseRateValue(isNewFormat ? row[9] : row[8]);
+            const rate4 = parseRateValue(isNewFormat ? row[10] : row[9]);
+            const rate5 = parseRateValue(isNewFormat ? row[11] : row[10]);
+            const minPremiumVal = parseNumeric(isNewFormat ? row[12] : row[11]);
+            const deductibleVal = parseNumeric(isNewFormat ? row[13] : row[12]);
 
             parsedRows.push({
               carType: carTypeVal,
@@ -2564,14 +2606,14 @@ export default function App() {
         r.companyId === comp && 
         r.carType === carType && 
         r.isEV === isEVCar && 
-        (!isEVCar || !r.evModel || r.evModel === model)
+        (!isEVCar || !r.evModel || r.evModel === 'Mọi dòng xe' || r.evModel === model)
       );
       if (!match) {
         match = ratesData.find(r => 
           r.companyId === comp && 
           r.carType === dbCarType && 
           r.isEV === isEVCar && 
-          (!isEVCar || !r.evModel || r.evModel === model)
+          (!isEVCar || !r.evModel || r.evModel === 'Mọi dòng xe' || r.evModel === model)
         );
       }
       if (!match) return null;
@@ -5258,6 +5300,7 @@ export default function App() {
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-10">
                           <th className="p-3 text-left whitespace-nowrap min-w-[200px]">Loại xe / Nghiệp vụ</th>
+                          <th className="p-3 text-left whitespace-nowrap">Dòng xe</th>
                           <th className="p-3 text-center whitespace-nowrap">Giá trị xe (triệu)</th>
                           <th className="p-3 text-center whitespace-nowrap font-bold text-blue-700 bg-blue-50/30">&lt; 3 năm</th>
                           <th className="p-3 text-center whitespace-nowrap font-bold text-blue-700 bg-blue-50/30">3 - 6 năm</th>
@@ -5279,7 +5322,7 @@ export default function App() {
                                 r.companyId === selectedInsurerForEdit && 
                                 r.carType === opt.id && 
                                 r.isEV === true && 
-                                (selectedInsurerForEdit !== 'BV' ? !r.evModel : r.evModel === editEvModel)
+                                (selectedInsurerForEdit !== 'BV' ? (!r.evModel || r.evModel === 'Mọi dòng xe') : (r.evModel === editEvModel || r.evModel === 'Mọi dòng xe' || !r.evModel))
                               );
                             }
                             return true;
@@ -5288,7 +5331,7 @@ export default function App() {
                           if (filteredOptions.length === 0) {
                             return (
                               <tr>
-                                <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
+                                <td colSpan={11} className="p-8 text-center text-slate-400 font-bold">
                                   Không tìm thấy loại xe nào phù hợp
                                 </td>
                               </tr>
@@ -5304,7 +5347,7 @@ export default function App() {
                               r.companyId === selectedInsurerForEdit && 
                               r.carType === opt.id && 
                               r.isEV === editIsEV &&
-                              (!editIsEV || (selectedInsurerForEdit !== 'BV' ? !r.evModel : r.evModel === editEvModel))
+                              (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!r.evModel || r.evModel === 'Mọi dòng xe') : (r.evModel === editEvModel || r.evModel === 'Mọi dòng xe' || !r.evModel)))
                             );
 
                             // If no rule found, use a fallback
@@ -5317,7 +5360,7 @@ export default function App() {
                               currentGroup = opt.group;
                               rows.push(
                                 <tr key={`group-${opt.group}`} className="bg-slate-50/50">
-                                  <td colSpan={8} className="p-3 font-extrabold text-slate-500 uppercase tracking-wide text-[10px]">
+                                  <td colSpan={11} className="p-3 font-extrabold text-slate-500 uppercase tracking-wide text-[10px]">
                                     {opt.group}
                                   </td>
                                 </tr>
@@ -5332,9 +5375,16 @@ export default function App() {
                               rows.push(
                                 <tr key={`${opt.id}-${ruleIdx}`} className="hover:bg-slate-50/50 transition-colors">
                                   {ruleIdx === 0 ? (
-                                    <td className="p-3 font-bold text-slate-800 align-middle" rowSpan={subRules.length}>
-                                      {opt.name}
-                                    </td>
+                                    <>
+                                      <td className="p-3 font-bold text-slate-800 align-middle" rowSpan={subRules.length}>
+                                        {opt.name}
+                                      </td>
+                                      <td className="p-3 text-slate-600 font-bold align-middle bg-slate-50/10" rowSpan={subRules.length}>
+                                        {ruleItem?.isEV 
+                                          ? (ruleItem.evModel || 'Mọi dòng xe') 
+                                          : 'Mọi dòng xe'}
+                                      </td>
+                                    </>
                                   ) : null}
                                   <td className="p-2 text-center text-slate-600 font-semibold bg-slate-50/30">
                                     {limitText}

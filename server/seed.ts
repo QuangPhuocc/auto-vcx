@@ -166,17 +166,18 @@ export const seedData = () => {
   });
 
   // Helper to generate a rate rule
-  const createRate = (carType: string, companyId: string, ratesArray: [number, number, number, number] | Array<{ maxVal: number | null, rates: [number, number, number, number] }>, isEV = false, evModel: string | null = null): RateRule => {
+  const createRate = (carType: string, companyId: string, ratesArray: [number, number, number, number] | Array<{ maxVal: number | null, rates: [number, number, number, number] }>, isEV = false, evModel: string | null = 'Mọi dòng xe'): RateRule => {
     const rulesList = Array.isArray(ratesArray[0]) || typeof ratesArray[0] === 'object' 
       ? (ratesArray as Array<{ maxVal: number | null, rates: [number, number, number, number] }>)
       : [{ maxVal: null, rates: ratesArray as [number, number, number, number] }];
       
+    const suffix = isEV && evModel && evModel !== 'Mọi dòng xe' ? `_${evModel}` : '';
     return {
-      id: `${carType}_${companyId}${isEV ? '_ev' : ''}${evModel ? '_' + evModel : ''}`,
+      id: `${carType}_${companyId}${isEV ? '_ev' : ''}${suffix}`,
       carType,
       companyId,
       isEV,
-      evModel,
+      evModel: evModel || 'Mọi dòng xe',
       rules: rulesList
     };
   };
@@ -240,8 +241,8 @@ export const seedData = () => {
     { maxVal: null, rates: [1.35, 1.47, 0, 0] }
   ], true, 'VF9'));
   rates.push(createRate('personal', 'BV', [
-    { maxVal: null, rates: [1.35, 1.47, 0, 0] }
-  ], true, 'VF8_9'));
+    { maxVal: null, rates: [1.45, 1.57, 0, 0] }
+  ], true, 'VF8'));
   rates.push(createRate('personal', 'BV', [
     { maxVal: null, rates: [1.45, 1.57, 0, 0] }
   ], true, 'VFe34'));
@@ -309,7 +310,7 @@ export const seedData = () => {
   rates.push(createRate('grab', 'BV', [
     { maxVal: null, rates: [3.63, 3.83, 0, 0] }
   ], true, 'VF3'));
-  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8_9'].forEach(model => {
+  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9'].forEach(model => {
     rates.push(createRate('grab', 'BV', [
       { maxVal: null, rates: [2.5, 2.7, 0, 0] }
     ], true, model));
@@ -347,7 +348,7 @@ export const seedData = () => {
   rates.push(createRate('taxi', 'BV', [
     { maxVal: null, rates: [3.3, 3.5, 0, 0] }
   ], true, 'VF3'));
-  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8_9'].forEach(model => {
+  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9'].forEach(model => {
     rates.push(createRate('taxi', 'BV', [
       { maxVal: null, rates: [1.85, 2.05, 0, 0] }
     ], true, model));
@@ -385,7 +386,7 @@ export const seedData = () => {
   rates.push(createRate('commercial_passenger', 'BV', [
     { maxVal: null, rates: [2.68, 2.88, 0, 0] }
   ], true, 'VF3'));
-  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8_9'].forEach(model => {
+  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9'].forEach(model => {
     rates.push(createRate('commercial_passenger', 'BV', [
       { maxVal: null, rates: [1.75, 1.95, 0, 0] }
     ], true, model));
