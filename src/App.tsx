@@ -1583,7 +1583,7 @@ export default function App() {
     });
   };
 
-  const handleUpdatePreviewRate = (carTypeId: string, ruleIndex: number, ageBracket: number, newValue: number) => {
+  const handleUpdatePreviewRate = (carTypeId: string, ruleIndex: number, ageBracket: number, newValue: number, evModelTarget?: string | null) => {
     if (!ratesPreviewData) return;
     setRatesPreviewData(prev => {
       if (!prev) return null;
@@ -1591,7 +1591,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
+            (!editIsEV || (item.evModel || 'Mọi dòng xe') === (evModelTarget || 'Mọi dòng xe'))) {
           const updatedRules = [...item.rules];
           const updatedRates = [...updatedRules[ruleIndex].rates] as number[];
           updatedRates[ageBracket] = newValue;
@@ -1987,7 +1987,7 @@ export default function App() {
     triggerNotification('warning', 'Đã hủy xem trước file Excel.');
   };
 
-  const handleUpdateMinPremium = (carTypeId: string, ruleIndex: number, newValue: number | null) => {
+  const handleUpdateMinPremium = (carTypeId: string, ruleIndex: number, newValue: number | null, evModelTarget?: string | null) => {
     const targetSet = ratesPreviewData ? setRatesPreviewData : setRatesData;
     targetSet((prev: any[] | null) => {
       if (!prev) return null;
@@ -1995,7 +1995,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
+            (!editIsEV || (item.evModel || 'Mọi dòng xe') === (evModelTarget || 'Mọi dòng xe'))) {
           const updatedRules = [...item.rules];
           updatedRules[ruleIndex] = {
             ...updatedRules[ruleIndex],
@@ -2011,7 +2011,7 @@ export default function App() {
     });
   };
 
-  const handleUpdateDeductible = (carTypeId: string, ruleIndex: number, newValue: number | null) => {
+  const handleUpdateDeductible = (carTypeId: string, ruleIndex: number, newValue: number | null, evModelTarget?: string | null) => {
     const targetSet = ratesPreviewData ? setRatesPreviewData : setRatesData;
     targetSet((prev: any[] | null) => {
       if (!prev) return null;
@@ -2019,7 +2019,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
+            (!editIsEV || (item.evModel || 'Mọi dòng xe') === (evModelTarget || 'Mọi dòng xe'))) {
           const updatedRules = [...item.rules];
           updatedRules[ruleIndex] = {
             ...updatedRules[ruleIndex],
@@ -2035,7 +2035,7 @@ export default function App() {
     });
   };
 
-  const handleUpdateRate = (carTypeId: string, ruleIndex: number, ageBracket: number, newValue: number) => {
+  const handleUpdateRate = (carTypeId: string, ruleIndex: number, ageBracket: number, newValue: number, evModelTarget?: string | null) => {
     const targetSet = ratesPreviewData ? setRatesPreviewData : setRatesData;
     targetSet((prev: any[] | null) => {
       if (!prev) return null;
@@ -2043,7 +2043,7 @@ export default function App() {
         if (item.carType === carTypeId && 
             item.companyId === selectedInsurerForEdit && 
             item.isEV === editIsEV && 
-            (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!item.evModel || item.evModel === 'Mọi dòng xe') : (item.evModel === editEvModel || item.evModel === 'Mọi dòng xe' || !item.evModel)))) {
+            (!editIsEV || (item.evModel || 'Mọi dòng xe') === (evModelTarget || 'Mọi dòng xe'))) {
           const updatedRules = [...item.rules];
           const updatedRates = [...updatedRules[ruleIndex].rates] as number[];
           updatedRates[ageBracket] = newValue;
@@ -5253,22 +5253,6 @@ export default function App() {
                         </button>
                       </div>
 
-                      {/* EV model selector if editIsEV is true */}
-                      {editIsEV && selectedInsurerForEdit === 'BV' && (
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-                          <span>Dòng EV:</span>
-                          <select 
-                            value={editEvModel}
-                            onChange={e => setEditEvModel(e.target.value)}
-                            className="bg-transparent border-none outline-none font-bold text-blue-600 bg-white rounded cursor-pointer"
-                          >
-                            {EV_MODELS.filter(m => m.id !== 'other').map(m => (
-                              <option key={m.id} value={m.id}>{m.id}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
                       {/* Hãng bảo hiểm selector */}
                       <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
                         <span>Hãng:</span>
@@ -5316,13 +5300,11 @@ export default function App() {
                         {(() => {
                           const activeRatesSource = ratesPreviewData || ratesData;
                           const filteredOptions = vehiclesList.filter(opt => {
-                            // If editIsEV is true, only show categories that actually have rules matching isEV = true & evModel
                             if (editIsEV) {
                               return activeRatesSource.some(r => 
                                 r.companyId === selectedInsurerForEdit && 
                                 r.carType === opt.id && 
-                                r.isEV === true && 
-                                (selectedInsurerForEdit !== 'BV' ? (!r.evModel || r.evModel === 'Mọi dòng xe') : (r.evModel === editEvModel || r.evModel === 'Mọi dòng xe' || !r.evModel))
+                                r.isEV === true
                               );
                             }
                             return true;
@@ -5343,22 +5325,29 @@ export default function App() {
 
                           return filteredOptions.flatMap(opt => {
                             const activeRatesSource = ratesPreviewData || ratesData;
-                            const ruleItem = activeRatesSource.find(r => 
+                            const matchedRules = activeRatesSource.filter(r => 
                               r.companyId === selectedInsurerForEdit && 
                               r.carType === opt.id && 
-                              r.isEV === editIsEV &&
-                              (!editIsEV || (selectedInsurerForEdit !== 'BV' ? (!r.evModel || r.evModel === 'Mọi dòng xe') : (r.evModel === editEvModel || r.evModel === 'Mọi dòng xe' || !r.evModel)))
+                              r.isEV === editIsEV
                             );
 
-                            // If no rule found, use a fallback
-                            const subRules = ruleItem?.rules || [{ maxVal: null, rates: [0, 0, 0, 0] as [number, number, number, number] }];
-                            
-                            const rows: React.ReactNode[] = [];
+                            const rulesToRender = matchedRules.length > 0 
+                              ? matchedRules 
+                              : [{
+                                  id: `${opt.id}_${selectedInsurerForEdit}${editIsEV ? '_ev' : ''}`,
+                                  carType: opt.id,
+                                  companyId: selectedInsurerForEdit,
+                                  isEV: editIsEV,
+                                  evModel: 'Mọi dòng xe',
+                                  rules: [{ maxVal: null, rates: [0, 0, 0, 0, 0, 0] as number[] }]
+                                }];
+
+                            const groupRows: React.ReactNode[] = [];
 
                             // Group header row
                             if (opt.group !== currentGroup) {
                               currentGroup = opt.group;
-                              rows.push(
+                              groupRows.push(
                                 <tr key={`group-${opt.group}`} className="bg-slate-50/50">
                                   <td colSpan={11} className="p-3 font-extrabold text-slate-500 uppercase tracking-wide text-[10px]">
                                     {opt.group}
@@ -5367,89 +5356,93 @@ export default function App() {
                               );
                             }
 
-                            subRules.forEach((rule, ruleIdx) => {
-                              const limitText = rule.maxVal === null 
-                                ? 'Mọi giá trị' 
-                                : `Dưới ${(rule.maxVal / 1e6).toFixed(0)}`;
+                            rulesToRender.forEach(ruleItem => {
+                              const subRules = ruleItem.rules || [{ maxVal: null, rates: [0, 0, 0, 0, 0, 0] as number[] }];
+                              const totalSubRows = subRules.length;
 
-                              rows.push(
-                                <tr key={`${opt.id}-${ruleIdx}`} className="hover:bg-slate-50/50 transition-colors">
-                                  {ruleIdx === 0 ? (
-                                    <>
-                                      <td className="p-3 font-bold text-slate-800 align-middle" rowSpan={subRules.length}>
-                                        {opt.name}
-                                      </td>
-                                      <td className="p-3 text-slate-600 font-bold align-middle bg-slate-50/10" rowSpan={subRules.length}>
-                                        {ruleItem?.isEV 
-                                          ? (ruleItem.evModel || 'Mọi dòng xe') 
-                                          : 'Mọi dòng xe'}
-                                      </td>
-                                    </>
-                                  ) : null}
-                                  <td className="p-2 text-center text-slate-600 font-semibold bg-slate-50/30">
-                                    {limitText}
-                                  </td>
-                                  {[0, 1, 2, 3, 4, 5].map(ageIdx => {
-                                    const val = rule.rates[ageIdx] ?? 0;
-                                    return (
-                                      <td key={ageIdx} className="p-1 text-center">
-                                        <div className="flex items-center justify-center border border-slate-200 rounded-lg px-1 py-1 bg-slate-50/50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-                                          <input 
-                                            type="number"
-                                            step="any"
-                                            value={val === 0 ? '' : val}
-                                            placeholder="0"
-                                            onChange={(e) => {
-                                              const parsed = parseFloat(e.target.value);
-                                              handleUpdateRate(opt.id, ruleIdx, ageIdx, isNaN(parsed) ? 0 : parsed);
-                                            }}
-                                            className="w-12 bg-transparent border-none text-center outline-none text-xs font-bold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          />
-                                          <span className="text-[10px] font-black text-slate-400">%</span>
-                                        </div>
-                                      </td>
-                                    );
-                                  })}
-                                  
-                                  {/* Phí tối thiểu input */}
-                                  <td className="p-1 text-center">
-                                    <div className="flex items-center justify-center border border-slate-200 rounded-lg px-1 py-1 bg-slate-50/50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-                                      <input 
-                                        type="text"
-                                        value={rule.minPremium !== undefined && rule.minPremium !== null ? rule.minPremium.toLocaleString('vi-VN') : ''}
-                                        placeholder="0"
-                                        onChange={(e) => {
-                                          const cleanVal = e.target.value.replace(/\D/g, '');
-                                          const parsed = parseInt(cleanVal, 10);
-                                          handleUpdateMinPremium(opt.id, ruleIdx, isNaN(parsed) ? null : parsed);
-                                        }}
-                                        className="w-20 bg-transparent border-none text-center outline-none text-xs font-bold text-slate-800"
-                                      />
-                                      <span className="text-[10px] font-black text-slate-400 ml-0.5">đ</span>
-                                    </div>
-                                  </td>
+                              subRules.forEach((rule, ruleIdx) => {
+                                const limitText = rule.maxVal === null 
+                                  ? 'Mọi giá trị' 
+                                  : `Dưới ${(rule.maxVal / 1e6).toFixed(0)}`;
 
-                                  {/* Mức khấu trừ input */}
-                                  <td className="p-1 text-center">
-                                    <div className="flex items-center justify-center border border-slate-200 rounded-lg px-1 py-1 bg-slate-50/50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-                                      <input 
-                                        type="text"
-                                        value={rule.deductible !== undefined && rule.deductible !== null ? rule.deductible.toLocaleString('vi-VN') : ''}
-                                        placeholder="0"
-                                        onChange={(e) => {
-                                          const cleanVal = e.target.value.replace(/\D/g, '');
-                                          const parsed = parseInt(cleanVal, 10);
-                                          handleUpdateDeductible(opt.id, ruleIdx, isNaN(parsed) ? null : parsed);
-                                        }}
-                                        className="w-20 bg-transparent border-none text-center outline-none text-xs font-bold text-slate-800"
-                                      />
-                                      <span className="text-[10px] font-black text-slate-400 ml-0.5">đ</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
+                                groupRows.push(
+                                  <tr key={`${ruleItem.id}-${ruleIdx}`} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
+                                    {ruleIdx === 0 ? (
+                                      <>
+                                        <td className="p-3 font-bold text-slate-800 align-middle border-r border-slate-100" rowSpan={totalSubRows}>
+                                          {opt.name}
+                                        </td>
+                                        <td className="p-3 text-slate-600 font-bold align-middle bg-slate-50/10 border-r border-slate-100" rowSpan={totalSubRows}>
+                                          {ruleItem.evModel || 'Mọi dòng xe'}
+                                        </td>
+                                      </>
+                                    ) : null}
+                                    <td className="p-2 text-center text-slate-600 font-semibold bg-slate-50/30">
+                                      {limitText}
+                                    </td>
+                                    {[0, 1, 2, 3, 4, 5].map(ageIdx => {
+                                      const val = rule.rates[ageIdx] ?? 0;
+                                      return (
+                                        <td key={ageIdx} className="p-1 text-center">
+                                          <div className="flex items-center justify-center border border-slate-200 rounded-lg px-1 py-1 bg-slate-50/50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                                            <input 
+                                              type="number"
+                                              step="any"
+                                              value={val === 0 ? '' : val}
+                                              placeholder="0"
+                                              onChange={(e) => {
+                                                const parsed = parseFloat(e.target.value);
+                                                handleUpdateRate(opt.id, ruleIdx, ageIdx, isNaN(parsed) ? 0 : parsed, ruleItem.evModel);
+                                              }}
+                                              className="w-12 bg-transparent border-none text-center outline-none text-xs font-bold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            />
+                                            <span className="text-[10px] font-black text-slate-400">%</span>
+                                          </div>
+                                        </td>
+                                      );
+                                    })}
+                                    
+                                    {/* Phí tối thiểu input */}
+                                    <td className="p-1 text-center">
+                                      <div className="flex items-center justify-center border border-slate-200 rounded-lg px-1 py-1 bg-slate-50/50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                                        <input 
+                                          type="text"
+                                          value={rule.minPremium !== undefined && rule.minPremium !== null ? rule.minPremium.toLocaleString('vi-VN') : ''}
+                                          placeholder="0"
+                                          onChange={(e) => {
+                                            const cleanVal = e.target.value.replace(/\D/g, '');
+                                            const parsed = parseInt(cleanVal, 10);
+                                            handleUpdateMinPremium(opt.id, ruleIdx, isNaN(parsed) ? null : parsed, ruleItem.evModel);
+                                          }}
+                                          className="w-20 bg-transparent border-none text-center outline-none text-xs font-bold text-slate-800"
+                                        />
+                                        <span className="text-[10px] font-black text-slate-400 ml-0.5">đ</span>
+                                      </div>
+                                    </td>
+
+                                    {/* Mức khấu trừ input */}
+                                    <td className="p-1 text-center">
+                                      <div className="flex items-center justify-center border border-slate-200 rounded-lg px-1 py-1 bg-slate-50/50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                                        <input 
+                                          type="text"
+                                          value={rule.deductible !== undefined && rule.deductible !== null ? rule.deductible.toLocaleString('vi-VN') : ''}
+                                          placeholder="0"
+                                          onChange={(e) => {
+                                            const cleanVal = e.target.value.replace(/\D/g, '');
+                                            const parsed = parseInt(cleanVal, 10);
+                                            handleUpdateDeductible(opt.id, ruleIdx, isNaN(parsed) ? null : parsed, ruleItem.evModel);
+                                          }}
+                                          className="w-20 bg-transparent border-none text-center outline-none text-xs font-bold text-slate-800"
+                                        />
+                                        <span className="text-[10px] font-black text-slate-400 ml-0.5">đ</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              });
                             });
-                            return rows;
+
+                            return groupRows;
                           });
                         })()}
                         </tbody>
