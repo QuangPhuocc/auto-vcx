@@ -56,13 +56,18 @@ interface BankReferral {
 
 const EV_MODELS = [
   { id: 'gas', name: 'Xe xăng' },
-  { id: 'VF3', name: 'Vinfast VF3 / Minio Green' },
-  { id: 'VF5', name: 'Vinfast VF5 / Herio Green' },
-  { id: 'VFe34', name: 'Vinfast VF e34' },
-  { id: 'VF6', name: 'Vinfast VF6 / Norio Green' },
-  { id: 'VF7', name: 'Vinfast VF7 / Limo Green' },
-  { id: 'VF8', name: 'Vinfast VF8' },
-  { id: 'VF9', name: 'Vinfast VF9' },
+  { id: 'VF3', name: 'VF3' },
+  { id: 'Minio Green', name: 'Minio Green' },
+  { id: 'Herio Green', name: 'Herio Green' },
+  { id: 'Nerio Green', name: 'Nerio Green' },
+  { id: 'VF5', name: 'VF5' },
+  { id: 'VF6', name: 'VF6' },
+  { id: 'VF7', name: 'VF7' },
+  { id: 'VF8', name: 'VF8' },
+  { id: 'VF9', name: 'VF9' },
+  { id: 'VFe34', name: 'VFe34' },
+  { id: 'MPV7', name: 'MPV7' },
+  { id: 'Limo Green', name: 'Limo Green' },
   { id: 'other', name: 'Xe điện khác' }
 ];
 

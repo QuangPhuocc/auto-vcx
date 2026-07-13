@@ -705,7 +705,7 @@ app.post('/api/vehicles', (req, res) => {
     if (!db.rates.some(r => r.id === rateIdEV)) {
       if (company.id === 'BV') {
         // Bảo Việt has specific models
-        const models = ['VF3', 'VF5', 'VFe34', 'VF6', 'VF7', 'VF8', 'VF9', 'other'];
+        const models = ['VF3', 'Minio Green', 'Herio Green', 'Nerio Green', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9', 'VFe34', 'MPV7', 'Limo Green', 'other'];
         models.forEach(model => {
           db.rates.push({
             id: `${normalizedId}_BV_ev_${model}`,
@@ -1713,7 +1713,7 @@ app.post('/api/sync/rates/preview', async (req, res) => {
         } else {
           const gasRule = newRates.find(r => r.companyId === 'BV' && r.carType === cat.id && !r.isEV);
           const rules = gasRule ? gasRule.rules : [{ maxVal: null, rates: [0, 0, 0, 0] as [number, number, number, number] }];
-          const evModels = ['VF3', 'VF5', 'VFe34', 'VF6', 'VF7', 'VF8', 'VF9', 'other'];
+          const evModels = ['VF3', 'Minio Green', 'Herio Green', 'Nerio Green', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9', 'VFe34', 'MPV7', 'Limo Green', 'other'];
           evModels.forEach(model => {
             newRates.push({
               id: `${cat.id}_BV_ev_${model}`,

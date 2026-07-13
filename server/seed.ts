@@ -258,6 +258,21 @@ export const seedData = () => {
   rates.push(createRate('personal', 'BV', [
     { maxVal: null, rates: [1.95, 2.07, 0, 0] }
   ], true, 'VF3'));
+  rates.push(createRate('personal', 'BV', [
+    { maxVal: null, rates: [1.95, 2.07, 0, 0] }
+  ], true, 'Minio Green'));
+  rates.push(createRate('personal', 'BV', [
+    { maxVal: null, rates: [1.5, 1.62, 0, 0] }
+  ], true, 'Herio Green'));
+  rates.push(createRate('personal', 'BV', [
+    { maxVal: null, rates: [1.45, 1.57, 0, 0] }
+  ], true, 'Nerio Green'));
+  rates.push(createRate('personal', 'BV', [
+    { maxVal: null, rates: [1.45, 1.57, 0, 0] }
+  ], true, 'Limo Green'));
+  rates.push(createRate('personal', 'BV', [
+    { maxVal: null, rates: [1.45, 1.57, 0, 0] }
+  ], true, 'MPV7'));
   rates.push(createRate('personal', 'MIC', [
     { maxVal: 400000000, rates: [1.65, 1.815, 2.09, 2.53] },
     { maxVal: 600000000, rates: [1.5, 1.65, 1.9, 2.3] },
@@ -307,10 +322,12 @@ export const seedData = () => {
     { maxVal: 500000000, rates: [2.95, 0, 0, 0] },
     { maxVal: null, rates: [2.5, 0, 0, 0] }
   ], true)); // BL EV Grab
-  rates.push(createRate('grab', 'BV', [
-    { maxVal: null, rates: [3.63, 3.83, 0, 0] }
-  ], true, 'VF3'));
-  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9'].forEach(model => {
+  ['VF3', 'Minio Green'].forEach(model => {
+    rates.push(createRate('grab', 'BV', [
+      { maxVal: null, rates: [3.63, 3.83, 0, 0] }
+    ], true, model));
+  });
+  ['Herio Green', 'Nerio Green', 'VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9', 'MPV7', 'Limo Green'].forEach(model => {
     rates.push(createRate('grab', 'BV', [
       { maxVal: null, rates: [2.5, 2.7, 0, 0] }
     ], true, model));
@@ -345,10 +362,12 @@ export const seedData = () => {
     { maxVal: 500000000, rates: [2.95, 0, 0, 0] },
     { maxVal: null, rates: [2.5, 0, 0, 0] }
   ], true)); // BL EV Taxi
-  rates.push(createRate('taxi', 'BV', [
-    { maxVal: null, rates: [3.3, 3.5, 0, 0] }
-  ], true, 'VF3'));
-  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9'].forEach(model => {
+  ['VF3', 'Minio Green'].forEach(model => {
+    rates.push(createRate('taxi', 'BV', [
+      { maxVal: null, rates: [3.3, 3.5, 0, 0] }
+    ], true, model));
+  });
+  ['Herio Green', 'Nerio Green', 'VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9', 'MPV7', 'Limo Green'].forEach(model => {
     rates.push(createRate('taxi', 'BV', [
       { maxVal: null, rates: [1.85, 2.05, 0, 0] }
     ], true, model));
@@ -383,10 +402,12 @@ export const seedData = () => {
     { maxVal: 500000000, rates: [2.5, 0, 0, 0] },
     { maxVal: null, rates: [1.7, 0, 0, 0] }
   ], true)); // BL EV Commercial Passenger
-  rates.push(createRate('commercial_passenger', 'BV', [
-    { maxVal: null, rates: [2.68, 2.88, 0, 0] }
-  ], true, 'VF3'));
-  ['VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9'].forEach(model => {
+  ['VF3', 'Minio Green'].forEach(model => {
+    rates.push(createRate('commercial_passenger', 'BV', [
+      { maxVal: null, rates: [2.68, 2.88, 0, 0] }
+    ], true, model));
+  });
+  ['Herio Green', 'Nerio Green', 'VFe34', 'VF5', 'VF6', 'VF7', 'VF8', 'VF9', 'MPV7', 'Limo Green'].forEach(model => {
     rates.push(createRate('commercial_passenger', 'BV', [
       { maxVal: null, rates: [1.75, 1.95, 0, 0] }
     ], true, model));
