@@ -389,6 +389,7 @@ export default function App() {
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(true);
 
   // Batch creation states
   const [parsedExcelRows, setParsedExcelRows] = useState<any[]>([]);
@@ -4578,7 +4579,7 @@ export default function App() {
                                     type="text"
                                     value={editName}
                                     onChange={e => setEditName(e.target.value)}
-                                    className="px-2 py-1 border rounded bg-slate-50 font-medium w-32"
+                                    className="px-2.5 py-1 border border-blue-400 rounded-lg bg-blue-50/20 font-semibold text-xs w-32 outline-none focus:ring-1 focus:ring-blue-500"
                                   />
                                 ) : (
                                   u.name
@@ -4590,7 +4591,7 @@ export default function App() {
                                     type="text"
                                     value={editPhone}
                                     onChange={e => setEditPhone(e.target.value)}
-                                    className="px-2 py-1 border rounded bg-slate-50 font-medium w-28"
+                                    className="px-2.5 py-1 border border-blue-400 rounded-lg bg-blue-50/20 font-semibold text-xs w-28 outline-none focus:ring-1 focus:ring-blue-500"
                                     placeholder="SĐT..."
                                   />
                                 ) : (
@@ -4599,17 +4600,37 @@ export default function App() {
                               </td>
                               {currentUser.role === 'master' && (
                                 <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="flex items-center gap-1.5 bg-blue-50/20 px-2 py-1 rounded-lg border border-slate-100 font-mono font-bold text-blue-600 w-fit">
-                                    <span className="select-all">{showPasswords[u.id] ? u.password : '••••••••'}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowPasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
-                                      className="text-slate-400 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer"
-                                      title={showPasswords[u.id] ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                                    >
-                                      {showPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
-                                    </button>
-                                  </div>
+                                  {editingUserId === u.id ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <input 
+                                        type={showEditPassword ? "text" : "password"}
+                                        placeholder="Mật khẩu..."
+                                        value={editPassword}
+                                        onChange={e => setEditPassword(e.target.value)}
+                                        className="px-2.5 py-1 border border-blue-400 rounded-lg bg-white font-mono text-xs w-28 outline-none focus:ring-1 focus:ring-blue-500 font-bold text-blue-700 shadow-xs"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowEditPassword(!showEditPassword)}
+                                        className="text-slate-400 hover:text-blue-600 transition-colors p-0.5 focus:outline-none cursor-pointer"
+                                        title={showEditPassword ? "Ẩn" : "Hiện"}
+                                      >
+                                        {showEditPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 bg-blue-50/20 px-2 py-1 rounded-lg border border-slate-100 font-mono font-bold text-blue-600 w-fit">
+                                      <span className="select-all">{showPasswords[u.id] ? u.password : '••••••••'}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowPasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
+                                        className="text-slate-400 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer"
+                                        title={showPasswords[u.id] ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                                      >
+                                        {showPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                                      </button>
+                                    </div>
+                                  )}
                                 </td>
                               )}
                               <td className="px-3 py-2.5 whitespace-nowrap">
@@ -4635,34 +4656,27 @@ export default function App() {
                               )}
                               <td className="px-3 py-2.5 whitespace-nowrap text-right">
                                 {editingUserId === u.id ? (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <input 
-                                      type="password"
-                                      placeholder="Mật khẩu mới..."
-                                      value={editPassword}
-                                      onChange={e => setEditPassword(e.target.value)}
-                                      className="px-2 py-1 border rounded bg-slate-50 font-medium w-28"
-                                    />
+                                  <div className="flex items-center justify-end gap-1.5">
                                     <button 
                                       onClick={() => handleUpdateUser(u.id)}
-                                      className="px-2.5 py-1 bg-blue-600 text-white rounded font-bold"
+                                      className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-xs transition-all"
                                     >
                                       Lưu
                                     </button>
                                     <button 
                                       onClick={() => setEditingUserId(null)}
-                                      className="px-2.5 py-1 bg-slate-200 text-slate-700 rounded font-bold"
+                                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold text-xs transition-all"
                                     >
                                       Hủy
                                     </button>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center justify-end gap-2">
+                                  <div className="flex items-center justify-end gap-1">
                                     <button 
                                       onClick={() => {
                                         setEditingUserId(u.id);
                                         setEditName(u.name);
-                                        setEditPassword('');
+                                        setEditPassword(u.password || '');
                                         setEditPhone(u.phone || '');
                                       }}
                                       className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
