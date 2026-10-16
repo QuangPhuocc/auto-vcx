@@ -1,6 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import { readDb, writeDb, logAction, User, RateRule, CommissionRule, UserCommissionOverride, InsuranceCompany, VehicleType, BankReferral } from './db';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { initDb, readDb, writeDb, logAction, User, RateRule, CommissionRule, UserCommissionOverride, InsuranceCompany, VehicleType, BankReferral } from './db';
 import { seedData } from './seed';
 import * as XLSX from 'xlsx';
 import bcrypt from 'bcryptjs';
@@ -107,9 +110,6 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
-// Seed database on startup
-seedData();
 
 // Helper to authenticate requests and get user role/id using secure JWT
 const getAuthUser = (req: express.Request): User | null => {
@@ -2344,6 +2344,23 @@ app.post('/api/bank-referrals/import', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  console.log(`Serving static files from ${distPath}`);
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+initDb().then(() => {
+  seedData();
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
 });

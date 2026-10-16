@@ -172,7 +172,16 @@ export const DEFAULT_VEHICLES: VehicleType[] = [
   { id: 'pickup_other', name: 'Xe vừa chở người vừa chở hàng khác', group: 'E. PICKUP - VAN', dbCarType: 'pickup' }
 ];
 
-const SQL = await initSqlJs();
+let SQL: any = null;
+
+export const initDb = async () => {
+  if (!SQL) {
+    SQL = await initSqlJs();
+  }
+  return getSqliteDb();
+};
+
+initSqlJs().then(instance => { SQL = instance; }).catch(() => {});
 
 let sqljsDbInner: any = null;
 let sqliteDb: SqlJsDatabase | null = null;
@@ -272,6 +281,9 @@ class SqlJsDatabase {
 
 export const getSqliteDb = (): SqlJsDatabase => {
   if (!sqliteDb) {
+    if (!SQL) {
+      throw new Error('Database engine not initialized yet. Call await initDb() first.');
+    }
     if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
     }

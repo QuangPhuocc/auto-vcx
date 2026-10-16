@@ -3622,7 +3622,7 @@ export default function App() {
                           onChange={(e) => setShowDiscountedPremium(e.target.checked)} 
                           className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                         />
-                        GIẢM CÒN
+                        {viewMode === 'agent' ? 'ĐẠI LÝ NỘP VỀ CTY' : 'GIẢM CÒN'}
                       </label>
                     )}
                   </div>
@@ -3726,17 +3726,29 @@ export default function App() {
               {/* PDF/Image Generation Area */}
               <div 
                 ref={resultsRef} 
-                className={`p-6 bg-slate-50 rounded-3xl border border-slate-200 shadow-inner ${
-                  isGenerating ? 'w-[1200px]' : 'w-full'
+                className={`p-4 sm:p-5 bg-slate-50 rounded-3xl border border-slate-200 shadow-inner ${
+                  isGenerating 
+                    ? '' 
+                    : (viewMode === 'agent' ? 'max-w-[740px] mx-auto w-full' : (viewMode === 'table' ? 'max-w-4xl mx-auto w-full' : 'w-full'))
                 }`}
-                style={isGenerating ? { width: '1200px', minWidth: '1200px' } : {}}
+                style={isGenerating ? { width: viewMode === 'agent' ? '740px' : (viewMode === 'table' ? '880px' : '1100px'), minWidth: viewMode === 'agent' ? '740px' : (viewMode === 'table' ? '880px' : '1100px') } : {}}
               >
                 {viewMode !== 'agent' && (
-                  <div className="text-center mb-8 pb-5 border-b border-slate-200">
-                    <h2 className="text-xl font-black text-blue-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
-                    <h3 className="text-sm md:text-base font-extrabold text-slate-700 tracking-normal normal-case">
-                      {titleText}
-                    </h3>
+                  <div className="text-center mb-3 pb-2.5 border-b border-slate-200">
+                    <h2 className="text-lg md:text-xl font-black text-blue-700 uppercase tracking-tight mb-1">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
+                    <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-xs md:text-sm text-slate-600 font-medium">
+                      <span className="font-bold text-slate-800">
+                        {carModel ? `${carModel.toUpperCase()} - ` : ''}{vehiclesList.find(opt => opt.id === carType)?.name || carType}{evModel !== 'gas' ? ` (${EV_MODELS.find(opt => opt.id === evModel)?.name || evModel})` : ''}
+                      </span>
+                      <span className="text-slate-300 select-none hidden min-[680px]:inline">|</span>
+                      <span className="whitespace-nowrap">
+                        Đời xe: <span className="font-semibold text-slate-800">{manufactureYear}</span> ({age === 0 ? 'Xe mới' : `${age} năm`})
+                      </span>
+                      <span className="text-slate-300 select-none">|</span>
+                      <span className="whitespace-nowrap">
+                        Giá trị xe: <span className="font-semibold text-blue-700">{formatCurrency(carValue)}</span>
+                      </span>
+                    </div>
                   </div>
                 )}
                 
@@ -3862,19 +3874,19 @@ export default function App() {
                                       {currentUser ? (
                                         <>
                                           {showBasePremium && (
-                                            <div className="text-xs line-through text-slate-400 font-bold mb-2">
+                                            <div className="text-xs line-through text-slate-400 font-normal mb-1.5">
                                               {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
                                             </div>
                                           )}
                                           {showDiscountedPremium && (
-                                            <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
+                                            <div className="text-lg font-normal tracking-tight" style={compStyle.textStyle}>
                                               {formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))}
                                             </div>
                                           )}
                                         </>
                                       ) : (
                                         showBasePremium && (
-                                          <div className="text-xl font-bold tracking-tight" style={compStyle.textStyle}>
+                                          <div className="text-lg font-normal tracking-tight" style={compStyle.textStyle}>
                                             {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
                                           </div>
                                         )
@@ -3898,21 +3910,21 @@ export default function App() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
-                            <th className="p-4">Hãng Bảo Hiểm</th>
-                            {showBasePremium && <th className="p-4 text-right">Giá bảo hiểm</th>}
+                            <th className="py-1.5 px-3 whitespace-nowrap">Hãng Bảo Hiểm</th>
+                            {showBasePremium && <th className="py-1.5 px-3 text-right whitespace-nowrap">Giá bảo hiểm</th>}
                             {currentUser && showCommission && (
                               <>
-                                <th className="p-4 text-right">Hoa hồng</th>
+                                <th className="py-1.5 px-3 text-right whitespace-nowrap">Hoa hồng</th>
                                 {selectedBank !== 'Không vay ngân hàng' && (
                                   <>
-                                    <th className="p-4 text-right">Chuyên thu</th>
-                                    <th className="p-4 text-right">Thực nhận</th>
+                                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Chuyên thu</th>
+                                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Thực nhận</th>
                                   </>
                                 )}
                               </>
                             )}
-                            {(currentUser && showDiscountedPremium) && <th className="p-4 text-right">Giảm còn</th>}
-                            <th className="p-4 text-right">Mức khấu trừ</th>
+                            {(currentUser && showDiscountedPremium) && <th className="py-1.5 px-3 text-right whitespace-nowrap">Giảm còn</th>}
+                            <th className="py-1.5 px-3 text-right whitespace-nowrap">Mức khấu trừ</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
@@ -3920,14 +3932,14 @@ export default function App() {
                             const compStyle = getCompanyStyles(quote.company);
                             return (
                               <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="p-4 whitespace-nowrap">
+                                <td className="py-1.5 px-3 whitespace-nowrap">
                                   <div className="flex items-center gap-2 whitespace-nowrap">
                                     <div className={`font-extrabold whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.company.name}</div>
                                   </div>
                                 </td>
                                 
                                 {showBasePremium && (
-                                  <td className="p-4 text-right font-bold text-slate-800 text-sm">
+                                  <td className="py-1.5 px-3 text-right font-normal text-slate-700 text-sm whitespace-nowrap">
                                     {currentUser && isEditMode ? (
                                       <input 
                                         type="text"
@@ -3936,7 +3948,7 @@ export default function App() {
                                           const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                           setCustomBasePremiums(prev => ({...prev, [quote.company.id]: rawVal}));
                                         }}
-                                        className="w-32 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                        className="w-32 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
                                       />
                                     ) : (
                                       formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)
@@ -3946,15 +3958,15 @@ export default function App() {
 
                                 {currentUser && showCommission && (
                                   <>
-                                    <td className="p-4 text-right font-bold text-slate-700">
+                                    <td className="py-1.5 px-3 text-right font-medium text-slate-600 whitespace-nowrap">
                                       {(quote.commissionRate * 100).toFixed(1)}%
                                     </td>
                                     {selectedBank !== 'Không vay ngân hàng' && (
                                       <>
-                                        <td className="p-4 text-right font-bold text-slate-700">
+                                        <td className="py-1.5 px-3 text-right font-medium text-slate-600 whitespace-nowrap">
                                           {typeof quote.bankReferralRate === 'string' ? quote.bankReferralRate : `${(quote.bankReferralRate * 100).toFixed(1)}%`}
                                         </td>
-                                        <td className="p-4 text-right font-bold text-rose-600">
+                                        <td className="py-1.5 px-3 text-right font-semibold text-rose-600 whitespace-nowrap">
                                           {typeof quote.netCommissionRate === 'string' ? quote.netCommissionRate : `${(quote.netCommissionRate * 100).toFixed(1)}%`}
                                         </td>
                                       </>
@@ -3963,7 +3975,7 @@ export default function App() {
                                 )}
                                 
                                 {(currentUser && showDiscountedPremium) && (
-                                  <td className={`p-4 text-right font-bold text-sm ${compStyle.textClass}`} style={compStyle.textStyle}>
+                                  <td className={`py-1.5 px-3 text-right font-normal text-sm whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>
                                     {isEditMode ? (
                                       <div className="flex flex-col items-end">
                                         <input 
@@ -3979,7 +3991,7 @@ export default function App() {
                                             const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                             setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
                                           }}
-                                          className="w-32 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                          className="w-32 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
                                         />
                                       </div>
                                     ) : (
@@ -3988,7 +4000,7 @@ export default function App() {
                                   </td>
                                 )}
                                 
-                                <td className="p-4 text-right text-slate-500 font-bold">
+                                <td className="py-1.5 px-3 text-right text-slate-500 font-normal whitespace-nowrap">
                                   {currentUser && isEditMode ? (
                                     <div className="flex items-center justify-end gap-1">
                                       <input 
@@ -3998,7 +4010,7 @@ export default function App() {
                                           const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                           setCustomDeductibles(prev => ({...prev, [quote.company.id]: rawVal}));
                                         }}
-                                        className="w-28 text-right px-2 py-1 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                        className="w-28 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
                                       />
                                       <span className="text-[10px] text-slate-400 font-bold">đ</span>
                                     </div>
@@ -4011,40 +4023,41 @@ export default function App() {
                           })}
 
                           {/* Quyền lợi Row */}
-                          <tr className="bg-rose-50/10 border-none">
-                            <td colSpan={totalColumns} className="p-6 border-t border-slate-200">
-                              <div className="space-y-4 text-rose-900">
-                                <h4 className="font-extrabold text-sm lg:text-base flex items-center gap-2 text-rose-700">
-                                  <Info size={16} className="text-rose-500" />
-                                  Tóm tắt quyền lợi bảo hiểm vật chất:
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs lg:text-sm font-semibold">
-                                  <div className="space-y-1.5">
-                                    <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
-                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                                      <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
-                                      <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
-                                      <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
-                                    </ul>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
-                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                                      {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
-                                      <li>Không khấu hao phụ tùng thay mới</li>
-                                      <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
-                                    </ul>
+                          {showTerms && (
+                            <tr className="bg-blue-50/10 border-none">
+                              <td colSpan={totalColumns} className="p-2 border-t border-slate-200">
+                                <div className="rounded-xl border border-blue-100 bg-blue-50/20 p-2.5">
+                                  <h4 className="font-extrabold text-xs flex items-center gap-1.5 text-blue-700 uppercase tracking-tight mb-1.5">
+                                    <Info size={14} className="text-blue-600 shrink-0" />
+                                    Tóm tắt quyền lợi - Xe được bảo hiểm khi gặp sự cố:
+                                  </h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                    <div>
+                                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px] leading-tight">
+                                        <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
+                                        <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở...</li>
+                                        <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
+                                      </ul>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                      <p className="font-bold text-slate-800 text-[11px] uppercase tracking-wide">Bao gồm các điều khoản bổ sung:</p>
+                                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px] leading-tight">
+                                        {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
+                                        <li>Không khấu hao phụ tùng thay mới</li>
+                                        <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
+                                      </ul>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </td>
-                          </tr>
+                              </td>
+                            </tr>
+                          )}
 
                           {/* Contact Row */}
                           {currentUser && (
                             <tr className="bg-white border-none">
-                              <td colSpan={totalColumns} className="p-4 border-t border-slate-200">
-                                <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed whitespace-nowrap">
+                              <td colSpan={totalColumns} className="p-2.5 border-t border-slate-200">
+                                <p className="text-center text-xs md:text-sm font-black tracking-wide leading-relaxed whitespace-nowrap">
                                   <span className="text-red-600">Liên hệ Zalo: </span>
                                   <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
                                   {currentUser.phone ? (
@@ -4060,7 +4073,7 @@ export default function App() {
                           {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
                             <tr className="border-none">
                               <td colSpan={totalColumns} className="p-0 border-none">
-                                <div className="p-3 bg-yellow-400 text-red-600 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider">
+                                <div className="p-2.5 bg-yellow-400 text-red-600 font-extrabold text-center text-xs uppercase tracking-wider">
                                   TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                                 </div>
                               </td>
@@ -4074,23 +4087,33 @@ export default function App() {
                   const showDiscount = !!(currentUser && showDiscountedPremium);
                   return (
                     /* viewMode === 'agent' */
-                    <div className={`${isGenerating ? 'overflow-visible' : 'overflow-x-auto'} rounded-2xl border border-slate-200 bg-white shadow-sm p-4`}>
+                    <div className={`${isGenerating ? 'overflow-visible' : 'overflow-x-auto'} rounded-2xl border border-slate-200 bg-white shadow-sm p-3`}>
                       <table className="w-full text-left border-collapse table-fixed">
                         <colgroup>
-                          <col className={showDiscount ? "w-[35%]" : "w-[45%]"} />
-                          <col className={showDiscount ? "w-[20%]" : "w-[25%]"} />
-                          <col className={showDiscount ? "w-[20%]" : "w-[30%]"} />
+                          <col className={showDiscount ? "w-[27%]" : "w-[38%]"} />
+                          <col className={showDiscount ? "w-[24%]" : "w-[31%]"} />
+                          <col className={showDiscount ? "w-[24%]" : "w-[31%]"} />
                           {showDiscount && <col className="w-[25%]" />}
                         </colgroup>
                         <tbody>
-                          {/* Title Row - Centered inside colSpan 3 */}
+                          {/* Title Row - Strictly inside colSpan 3 so column 4 is independent for cropping */}
                           <tr className="border-none">
-                            <td colSpan={3} className="p-4 border-none text-center">
-                              <div className="text-center mb-6 pb-4 border-b border-slate-200">
-                                <h2 className="text-xl font-black text-rose-700 uppercase tracking-tight mb-2">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
-                                <h3 className="text-sm md:text-base font-extrabold text-slate-700 tracking-normal normal-case">
-                                  {titleText}
-                                </h3>
+                            <td colSpan={3} className="p-2 border-none text-center">
+                              <div className="text-center mb-2.5 pb-2.5 border-b border-slate-200">
+                                <h2 className="text-lg md:text-xl font-black text-rose-700 uppercase tracking-tight mb-1">BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE</h2>
+                                <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-xs md:text-sm text-slate-600 font-medium">
+                                  <span className="font-bold text-slate-800">
+                                    {carModel ? `${carModel.toUpperCase()} - ` : ''}{vehiclesList.find(opt => opt.id === carType)?.name || carType}{evModel !== 'gas' ? ` (${EV_MODELS.find(opt => opt.id === evModel)?.name || evModel})` : ''}
+                                  </span>
+                                  <span className="text-slate-300 select-none hidden min-[680px]:inline">|</span>
+                                  <span className="whitespace-nowrap">
+                                    Đời xe: <span className="font-semibold text-slate-800">{manufactureYear}</span> ({age === 0 ? 'Xe mới' : `${age} năm`})
+                                  </span>
+                                  <span className="text-slate-300 select-none">|</span>
+                                  <span className="whitespace-nowrap">
+                                    Giá trị xe: <span className="font-semibold text-rose-700">{formatCurrency(carValue)}</span>
+                                  </span>
+                                </div>
                               </div>
                             </td>
                             {showDiscount && <td className="border-none"></td>}
@@ -4098,10 +4121,14 @@ export default function App() {
 
                           {/* Headers */}
                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
-                            <th className="p-4">Hãng Bảo Hiểm</th>
-                            <th className="p-4 text-right">Giá bảo hiểm</th>
-                            <th className="p-4 text-right">Mức khấu trừ</th>
-                            {showDiscount && <th className="p-4 text-right bg-rose-50/20 border-l border-rose-100">Giảm còn</th>}
+                            <th className="py-1.5 px-3 whitespace-nowrap">Hãng Bảo Hiểm</th>
+                            <th className="py-1.5 px-3 text-right whitespace-nowrap">Giá bảo hiểm</th>
+                            <th className="py-1.5 px-3 text-right whitespace-nowrap">Mức khấu trừ</th>
+                            {showDiscount && (
+                              <th className="py-1.5 px-3 text-right whitespace-nowrap bg-rose-50/80 border-l-2 border-dashed border-rose-300 text-rose-700 font-bold">
+                                ĐẠI LÝ NỘP VỀ CTY
+                              </th>
+                            )}
                           </tr>
 
                           {/* Data Rows */}
@@ -4109,20 +4136,20 @@ export default function App() {
                             const compStyle = getCompanyStyles(quote.company);
                             return (
                               <tr key={idx} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
-                                <td className="p-4 whitespace-nowrap">
-                                  <div className={`font-extrabold whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.company.name}</div>
+                                <td className="py-1.5 px-3 whitespace-nowrap">
+                                  <div className={`font-bold whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.company.name}</div>
                                 </td>
                                 
-                                <td className="p-4 text-right font-bold text-slate-800 text-sm">
+                                <td className="py-1.5 px-3 text-right font-normal text-slate-700 text-sm whitespace-nowrap">
                                   {formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)}
                                 </td>
 
-                                <td className="p-4 text-right text-slate-500 font-bold text-sm">
+                                <td className="py-1.5 px-3 text-right text-slate-500 font-normal text-sm whitespace-nowrap">
                                   {new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ
                                 </td>
 
                                 {showDiscount && (
-                                  <td className={`p-4 text-right font-bold text-sm bg-rose-50/10 border-l border-rose-50/50 ${compStyle.textClass}`} style={compStyle.textStyle}>
+                                  <td className={`py-1.5 px-3 text-right font-normal text-sm bg-rose-50/30 border-l-2 border-dashed border-rose-300 whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>
                                     {formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))}
                                   </td>
                                 )}
@@ -4130,43 +4157,44 @@ export default function App() {
                             );
                           })}
 
-                          {/* Quyền lợi Row - Centered inside colSpan 3 */}
-                          <tr className="border-none">
-                            <td colSpan={3} className="p-4 border-none">
-                              <div className="space-y-4 text-rose-900 bg-rose-50/20 border border-slate-100 rounded-2xl p-6">
-                                <h4 className="font-extrabold text-base flex items-center gap-2 text-rose-700">
-                                  <Info size={18} className="text-rose-500" />
-                                  Tóm tắt quyền lợi bảo hiểm vật chất:
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm font-semibold">
-                                  <div className="space-y-2">
-                                    <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
-                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                                      <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
-                                      <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
-                                      <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
-                                    </ul>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
-                                    <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                                      {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
-                                      <li>Không khấu hao phụ tùng thay mới</li>
-                                      <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
-                                    </ul>
+                          {/* Quyền lợi Row - Strictly inside colSpan 3 */}
+                          {showTerms && (
+                            <tr className="border-none">
+                              <td colSpan={3} className="p-2 border-none">
+                                <div className="rounded-xl border border-rose-100 bg-rose-50/20 p-2.5">
+                                  <h4 className="font-extrabold text-xs flex items-center gap-1.5 text-rose-700 uppercase tracking-tight mb-1.5">
+                                    <Info size={14} className="text-rose-500 shrink-0" />
+                                    Tóm tắt quyền lợi - Xe được bảo hiểm khi gặp sự cố:
+                                  </h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                    <div>
+                                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px] leading-tight">
+                                        <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
+                                        <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở...</li>
+                                        <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
+                                      </ul>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                      <p className="font-bold text-slate-800 text-[11px] uppercase tracking-wide">Bao gồm các điều khoản bổ sung:</p>
+                                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px] leading-tight">
+                                        {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
+                                        <li>Không khấu hao phụ tùng thay mới</li>
+                                        <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
+                                      </ul>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </td>
-                            {showDiscount && <td className="border-none"></td>}
-                          </tr>
+                              </td>
+                              {showDiscount && <td className="border-none"></td>}
+                            </tr>
+                          )}
 
-                          {/* Contact Row - Centered inside colSpan */}
+                          {/* Contact Row - Strictly inside colSpan 3 */}
                           {currentUser && (
                             <tr className="border-none">
-                              <td colSpan={showDiscount ? 4 : 3} className="p-4 border-none">
-                                <div className="p-3 bg-white rounded-2xl border border-rose-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all">
-                                  <p className="text-center text-xs sm:text-sm md:text-base font-black tracking-wide leading-relaxed whitespace-nowrap">
+                              <td colSpan={3} className="p-2 pt-0 border-none">
+                                <div className="p-2 bg-white rounded-xl border border-rose-200 flex items-center justify-center shadow-xs">
+                                  <p className="text-center text-xs md:text-sm font-black tracking-wide whitespace-nowrap">
                                     <span className="text-red-600">Liên hệ Zalo: </span>
                                     <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
                                     {currentUser.phone ? (
@@ -4178,15 +4206,17 @@ export default function App() {
                                   </p>
                                 </div>
                               </td>
+                              {showDiscount && <td className="border-none"></td>}
                             </tr>
                           )}
                           {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
                             <tr className="border-none">
-                              <td colSpan={showDiscount ? 4 : 3} className="p-4 pt-0 border-none">
-                                <div className="p-3 bg-yellow-400 text-red-600 font-extrabold text-center text-xs md:text-sm rounded-2xl shadow-sm border border-yellow-500">
+                              <td colSpan={3} className="p-2 pt-0 border-none">
+                                <div className="p-2 bg-yellow-400 text-red-600 font-extrabold text-center text-xs rounded-xl shadow-xs border border-yellow-500 uppercase tracking-wider">
                                   TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                                 </div>
                               </td>
+                              {showDiscount && <td className="border-none"></td>}
                             </tr>
                           )}
                         </tbody>
@@ -4197,37 +4227,38 @@ export default function App() {
 
                 {/* Combined Benefits Summary & Zalo Contact Block (for grid view) */}
                 {viewMode === 'grid' && (
-                  <div className="mt-6 space-y-0 rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+                  <div className="mt-4 space-y-0 rounded-2xl border border-slate-200 overflow-hidden shadow-xs bg-white">
                     {/* Benefits Summary Section */}
-                    <div className="p-6 bg-rose-50/20 border-b border-slate-100 space-y-4">
-                      <h4 className="font-extrabold text-sm lg:text-base flex items-center gap-2 text-rose-700">
-                        <Info size={16} className="text-rose-500" />
-                        Tóm tắt quyền lợi bảo hiểm vật chất:
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs lg:text-sm font-semibold">
-                        <div className="space-y-1.5">
-                          <p className="font-bold text-slate-700">Xe được bảo hiểm khi gặp sự cố:</p>
-                          <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                            <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
-                            <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở, động đất,...</li>
-                            <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
-                          </ul>
-                        </div>
-                        <div className="space-y-1.5">
-                          <p className="font-bold text-slate-700">Đã bao gồm các điều khoản bổ sung cao cấp:</p>
-                          <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                            {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
-                            <li>Không khấu hao phụ tùng thay mới</li>
-                            <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
-                          </ul>
+                    {showTerms && (
+                      <div className="p-2.5 bg-blue-50/20 border-b border-slate-100">
+                        <h4 className="font-extrabold text-xs flex items-center gap-1.5 text-blue-700 uppercase tracking-tight mb-1.5">
+                          <Info size={14} className="text-blue-600" />
+                          Tóm tắt quyền lợi - Xe được bảo hiểm khi gặp sự cố:
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px] leading-tight">
+                              <li>Đâm va, lật đổ, lệch trọng tâm, bị vật thể khác rơi vào</li>
+                              <li>Tai họa thiên tai bất khả kháng: Ngập lụt, giông bão, sạt lở...</li>
+                              <li>Cháy nổ, hỏa hoạn / Trộm cắp toàn bộ xe</li>
+                            </ul>
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="font-bold text-slate-800 text-[11px] uppercase tracking-wide">Bao gồm các điều khoản bổ sung:</p>
+                            <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px] leading-tight">
+                              {age < 6 && <li>Tự chọn xưởng sửa chữa chính hãng</li>}
+                              <li>Không khấu hao phụ tùng thay mới</li>
+                              <li>Bồi thường động cơ ngập nước (Thủy kích)</li>
+                            </ul>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Zalo Contact Section */}
                     {currentUser && (
-                      <div className="p-4 bg-white flex items-center justify-center">
-                        <p className="text-center text-sm md:text-base lg:text-lg font-black tracking-wide leading-relaxed whitespace-nowrap">
+                      <div className="p-2.5 bg-white flex items-center justify-center">
+                        <p className="text-center text-xs md:text-sm font-black tracking-wide leading-relaxed whitespace-nowrap">
                           <span className="text-red-600">Liên hệ Zalo: </span>
                           <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
                           {currentUser.phone ? (
@@ -4240,7 +4271,7 @@ export default function App() {
                       </div>
                     )}
                     {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
-                      <div className="p-3 bg-yellow-400 text-red-600 font-extrabold text-center text-xs md:text-sm uppercase tracking-wider border-t border-yellow-500">
+                      <div className="p-2.5 bg-yellow-400 text-red-600 font-extrabold text-center text-xs uppercase tracking-wider border-t border-yellow-500">
                         TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                       </div>
                     )}
