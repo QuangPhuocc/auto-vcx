@@ -717,6 +717,14 @@ export default function App() {
         throw new Error(data.message || 'Update failed');
       }
       triggerNotification('success', `Cập nhật thông tin tài khoản thành công`);
+      if (currentUser && currentUser.id === id) {
+        setCurrentUser(prev => prev ? {
+          ...prev,
+          name: editName || prev.name,
+          phone: editPhone,
+          password: editPassword || prev.password
+        } : null);
+      }
       setEditingUserId(null);
       setEditName('');
       setEditPassword('');
@@ -792,6 +800,7 @@ export default function App() {
 
       triggerNotification('success', 'Đã cập nhật thông tin cá nhân thành công!');
       setShowProfileModal(false);
+      fetchUsers();
     })
     .catch(err => {
       setProfileError(err.message);
@@ -4650,7 +4659,7 @@ export default function App() {
                                       @{u.parentUsername}
                                     </span>
                                   ) : (
-                                    <span className="text-slate-400 font-semibold italic">MASTER</span>
+                                    <span className="text-slate-400 font-semibold italic">{u.role === 'master' ? 'HỆ THỐNG' : 'MASTER'}</span>
                                   )}
                                 </td>
                               )}
@@ -4684,8 +4693,8 @@ export default function App() {
                                     >
                                       <Edit3 size={16} />
                                     </button>
-                                    {/* Subordinate delete button: Master only deletes admin, admin deletes direct client, client deletes direct user */}
-                                    {((currentUser.role === 'master' && u.role === 'admin') || 
+                                    {/* Subordinate delete button: Master can delete anyone except master, admin deletes direct client, client deletes direct user */}
+                                    {((currentUser.role === 'master' && u.role !== 'master' && u.id !== currentUser.id) || 
                                       (currentUser.role === 'admin' && u.role === 'client') || 
                                       (currentUser.role === 'client' && u.role === 'user')) && (
                                       <button 

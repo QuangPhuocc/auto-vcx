@@ -183,8 +183,9 @@ app.get('/api/users', (req, res) => {
   let visibleUsers: User[] = [];
 
   if (currentUser.role === 'master') {
-    // Master sees everyone in the system (except master itself)
-    visibleUsers = db.users.filter(u => u.role !== 'master');
+    // Master sees everyone in the system (master first, then admins, clients, users)
+    const roleOrder: Record<string, number> = { master: 0, admin: 1, client: 2, user: 3 };
+    visibleUsers = [...db.users].sort((a, b) => (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9));
   } else if (currentUser.role === 'admin') {
     // Admin sees only direct clients they created
     visibleUsers = db.users.filter(u => u.parentId === currentUser.id && u.role === 'client');
@@ -203,6 +204,7 @@ app.get('/api/users', (req, res) => {
       username: u.username,
       role: u.role,
       name: u.name,
+      phone: u.phone || '',
       parentId: u.parentId,
       parentUsername: parentUser ? parentUser.username : null,
       parentName: parentUser ? parentUser.name : null,
@@ -537,8 +539,10 @@ app.delete('/api/users/:id', (req, res) => {
   const user = db.users[userIndex];
 
   // Restrict who can delete
-  if (currentUser.role === 'master' && user.role !== 'admin') {
-    return res.status(403).json({ message: 'Master chỉ có quyền xoá tài khoản Admin' });
+  if (currentUser.role === 'master') {
+    if (user.role === 'master' || user.id === currentUser.id) {
+      return res.status(403).json({ message: 'Không thể xoá tài khoản Master' });
+    }
   }
   if (currentUser.role === 'admin' && user.parentId !== currentUser.id) {
     return res.status(403).json({ message: 'Admin chỉ được xoá Client trực thuộc' });
