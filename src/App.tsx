@@ -4,10 +4,11 @@ import {
   Calculator, Car, Calendar, DollarSign, Percent, ShieldCheck, Info, CheckCircle2, 
   AlertCircle, Copy, Check, Download, Loader2, Edit3, Save, RefreshCw, Users, Key,
   ChevronDown, ChevronRight, Settings, Plus, Trash2, LogOut, FileText, UserPlus, HelpCircle, LogIn, Upload,
-  Eye, EyeOff
+  Eye, EyeOff, Sparkles
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
 import * as XLSX from 'xlsx';
+import { MetaCalculatorForm } from './MetaCalculatorForm';
 
 type AgeBracket = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -373,6 +374,13 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'grid' | 'table' | 'agent'>('grid');
   const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+  const [calculatorMode, setCalculatorMode] = useState<'official' | 'meta'>(() => {
+    return (localStorage.getItem('vcx_calc_mode') as 'official' | 'meta') || 'meta';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vcx_calc_mode', calculatorMode);
+  }, [calculatorMode]);
 
   // User Management State
   const [usersList, setUsersList] = useState<User[]>([]);
@@ -3340,10 +3348,74 @@ export default function App() {
           <div className="space-y-8 animate-in fade-in duration-200">
             {/* Input Form */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 space-y-6">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-4 border-b border-slate-100">
-                <Calculator size={22} className="text-blue-600" />
-                Thông tin tính phí
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Calculator size={22} className="text-blue-600" />
+                  Thông tin tính phí
+                </h2>
+
+                {/* 2 Button Chế độ: Bản chính thức & Bản Meta */}
+                <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setCalculatorMode('official')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      calculatorMode === 'official'
+                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/60'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <span>Bản chính thức</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCalculatorMode('meta')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      calculatorMode === 'meta'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Sparkles size={13} className={calculatorMode === 'meta' ? 'text-amber-300 animate-pulse' : 'text-indigo-500'} />
+                    <span>Bản Meta</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[9px] font-black uppercase">
+                      Mới
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {calculatorMode === 'meta' ? (
+                <MetaCalculatorForm
+                  carType={carType}
+                  setCarType={setCarType}
+                  carModel={carModel}
+                  setCarModel={setCarModel}
+                  manufactureYear={manufactureYear}
+                  setManufactureYear={setManufactureYear}
+                  carValue={carValue}
+                  setCarValueStr={setCarValueStr}
+                  selectedBank={selectedBank}
+                  setSelectedBank={setSelectedBank}
+                  profit={profit}
+                  setProfit={setProfit}
+                  evModel={evModel}
+                  setEvModel={setEvModel}
+                  showSeatCount={showSeatCount}
+                  seatCount={seatCount}
+                  setSeatCount={setSeatCount}
+                  showTonnage={showTonnage}
+                  tonnage={tonnage}
+                  setTonnage={setTonnage}
+                  currentUser={currentUser}
+                  BANK_OPTIONS={BANK_OPTIONS}
+                  EV_MODELS={EV_MODELS}
+                  vehiclesList={vehiclesList}
+                  triggerNotification={triggerNotification}
+                />
+              ) : (
+                <>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {/* Loại xe */}
@@ -3543,7 +3615,9 @@ export default function App() {
                   </select>
                 </div>
               </div>
-            </div>
+            </>
+          )}
+        </div>
 
             {/* Results Grid */}
             <div className="space-y-6">

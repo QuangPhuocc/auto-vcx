@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
+import { TOP_BRANDS, getBonbanhValuation, smartParseVehicleInput } from './bonbanh';
 
 dotenv.config();
 
@@ -2342,6 +2343,65 @@ app.post('/api/bank-referrals/import', (req, res) => {
     message: `Đã nhập và cập nhật thành công ${validReferrals.length} cấu hình chuyên thu ngân hàng!`,
     success: validReferrals.length
   });
+});
+
+// ==========================================
+// BONBANH.COM INTEGRATION ENDPOINTS
+// ==========================================
+
+// Get catalog of brands and models
+app.get('/api/bonbanh/catalog', (_req, res) => {
+  res.json({ brands: TOP_BRANDS });
+});
+
+// Get vehicle market valuation from Bonbanh.com
+app.get('/api/bonbanh/estimate', async (req, res) => {
+  try {
+    const { modelSlug, year, trimSlug, query } = req.query;
+    const valuation = await getBonbanhValuation({
+      modelSlug: typeof modelSlug === 'string' ? modelSlug : undefined,
+      year: typeof year === 'string' && year ? parseInt(year, 10) : undefined,
+      trimSlug: typeof trimSlug === 'string' ? trimSlug : undefined,
+      query: typeof query === 'string' ? query : undefined
+    });
+
+    if (!valuation) {
+      return res.status(404).json({ message: 'Không tìm thấy dữ liệu giá cho xe này trên BonBanh' });
+    }
+
+    res.json(valuation);
+  } catch (err: any) {
+    console.error('Error in /api/bonbanh/estimate:', err);
+    res.status(500).json({ message: err.message || 'Lỗi khi lấy dữ liệu từ Bonbanh' });
+  }
+});
+
+// Smart parse text input and auto-estimate
+app.post('/api/bonbanh/smart-estimate', async (req, res) => {
+  try {
+    const { input } = req.body;
+    if (!input || typeof input !== 'string') {
+      return res.status(400).json({ message: 'Vui lòng cung cấp chuỗi mô tả xe' });
+    }
+
+    const parsed = smartParseVehicleInput(input);
+    let estimate = null;
+
+    try {
+      estimate = await getBonbanhValuation({
+        modelSlug: parsed.model?.slug,
+        year: parsed.year,
+        query: parsed.searchQuery
+      });
+    } catch (scrapingErr) {
+      console.warn('Valuation fetch failed, returning parsed only:', scrapingErr);
+    }
+
+    res.json({ parsed, estimate });
+  } catch (err: any) {
+    console.error('Error in /api/bonbanh/smart-estimate:', err);
+    res.status(500).json({ message: err.message || 'Lỗi xử lý định giá thông minh' });
+  }
 });
 
 const __filename = fileURLToPath(import.meta.url);
