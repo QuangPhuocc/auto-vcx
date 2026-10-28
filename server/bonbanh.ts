@@ -288,55 +288,144 @@ export function extractTrimsAndYears(html: string, modelSlug?: string, year?: nu
   return { trims, years: years.sort((a, b) => b - a) };
 }
 
+export interface ValuationResult {
+  suggestedValue: number;
+  exactAverage: number;
+  minPrice: number;
+  maxPrice: number;
+  totalListings: number;
+  sampleCount: number;
+  formula: string;
+  sampleListings: BonbanhListing[];
+  availableTrims?: { slug: string; name: string }[];
+  availableYears?: number[];
+  selectedTrimSlug?: string;
+  matchedTrim?: { slug: string; name: string } | null;
+  sourceUrl: string;
+}
+
 /**
- * Tính giá trị trung bình phù hợp:
- * - Nếu chỉ có 1-2 xe: lấy giá thấp nhất + 40tr (khoảng 30-50tr)
- * - Nếu 3-5 xe: lấy trung bình các xe ở giữa
- * - Nếu 6-19 xe: loại 1 xe thấp nhất và 1 xe cao nhất, lấy trung bình
- * - Nếu >= 20 xe: lấy 10 xe thấp nhất + 10 xe cao nhất tính trung bình
+ * Tính giá trị trung bình thị trường chuẩn:
+ * - Nếu chỉ có 1-2 xe: lấy giá thấp nhất + 40tr (khoảng 30-50tr theo yêu cầu)
+ * - Lọc bỏ tin rác / cọc ngân hàng (< 70% giá trung vị)
+ * - Lấy phân vị từ 50% đến 100% của dải giá hợp lệ để đại diện xe chất lượng chuẩn bảo hiểm,
+ *   loại bỏ hoàn toàn các xe nát/taxi/giá thợ ở nửa dưới (vd Cerato 2019 AT ra chuẩn 410 triệu)
+ * - Làm tròn nấc 5 triệu
  */
-export function computeValuation(listings: BonbanhListing[], sourceUrl: string, trims?: { slug: string; name: string }[], years?: number[]): ValuationResult | null {
+export function computeValuation(
+  listings: BonbanhListing[],
+  sourceUrl: string,
+  trims?: { slug: string; name: string }[],
+  years?: number[],
+  options?: { isAuto?: boolean; isManual?: boolean }
+): ValuationResult | null {
   if (!listings || listings.length === 0) {
     return null;
   }
 
-  const sorted = [...listings].sort((a, b) => a.priceVal - b.priceVal);
-  const n = sorted.length;
-  let finalAvg = 0;
+  let pool = [...listings];
 
-  if (n <= 2) {
-    finalAvg = sorted[0].priceVal + 40_000_000;
-  } else if (n >= 3 && n <= 5) {
-    const slice = n >= 4 ? sorted.slice(1, -1) : sorted;
-    const sum = slice.reduce((acc, item) => acc + item.priceVal, 0);
-    finalAvg = Math.round(sum / slice.length);
-  } else if (n >= 6 && n <= 19) {
-    const slice = sorted.slice(1, -1);
-    const sum = slice.reduce((acc, item) => acc + item.priceVal, 0);
-    finalAvg = Math.round(sum / slice.length);
-  } else {
-    const lowest10 = sorted.slice(0, 10);
-    const highest10 = sorted.slice(-10);
-    const selected = [...lowest10, ...highest10];
-    const sum = selected.reduce((acc, item) => acc + item.priceVal, 0);
-    finalAvg = Math.round(sum / selected.length);
+  // 1. Lọc theo hộp số nếu người dùng chỉ định
+  if (options?.isAuto) {
+    const atOnly = pool.filter(item => {
+      const t = item.title.toLowerCase();
+      const isMt = /\bmt\b/i.test(t) || t.includes('số sàn') || t.includes('so san');
+      return !isMt;
+    });
+    if (atOnly.length > 0) pool = atOnly;
+  } else if (options?.isManual) {
+    const mtOnly = pool.filter(item => {
+      const t = item.title.toLowerCase();
+      return /\bmt\b/i.test(t) || t.includes('số sàn') || t.includes('so san');
+    });
+    if (mtOnly.length > 0) pool = mtOnly;
   }
 
-  const suggestedValue = Math.round(finalAvg / 1_000_000) * 1_000_000;
+  const sorted = pool.sort((a, b) => a.priceVal - b.priceVal);
+  const n = sorted.length;
+
+  if (n <= 2) {
+    // Quy tắc: Nếu chỉ có 1-2 xe thì cộng tầm 30-50tr (lấy 40tr) vào giá thấp nhất
+    const base = sorted[0].priceVal + 40_000_000;
+    const suggestedValue = Math.round(base / 5_000_000) * 5_000_000;
+    return {
+      suggestedValue,
+      exactAverage: base,
+      minPrice: sorted[0].priceVal,
+      maxPrice: sorted[n - 1].priceVal,
+      totalListings: n,
+      sampleCount: n,
+      formula: 'Giá thấp nhất + 40 triệu',
+      sampleListings: sorted,
+      availableTrims: trims,
+      availableYears: years,
+      sourceUrl
+    };
+  }
+
+  // Median
+  const mid = Math.floor(n / 2);
+  const median = n % 2 !== 0 ? sorted[mid].priceVal : (sorted[mid - 1].priceVal + sorted[mid].priceVal) / 2;
+
+  // 2. Lọc bỏ tin rác / cọc ngân hàng trả góp (< 70% giá trung vị)
+  const valid = sorted.filter(l => l.priceVal >= median * 0.70);
+  const validN = valid.length;
+
+  // 3. Mẫu đại diện thị trường xe chuẩn chất lượng:
+  // Lấy phân vị từ 50% đến 100% để phản ánh đúng xe đẹp chuẩn thị trường
+  const startIdx = Math.floor(validN * 0.50);
+  const slice = valid.slice(startIdx);
+
+  const sum = slice.reduce((acc, item) => acc + item.priceVal, 0);
+  const finalAvg = Math.round(sum / slice.length);
+
+  // Làm tròn theo nấc 5 triệu chuẩn thị trường
+  const suggestedValue = Math.round(finalAvg / 5_000_000) * 5_000_000;
 
   return {
     suggestedValue,
     exactAverage: finalAvg,
-    minPrice: sorted[0].priceVal,
-    maxPrice: sorted[n - 1].priceVal,
-    totalListings: n,
-    sampleCount: n,
-    formula: '',
-    sampleListings: sorted.slice(0, 4),
+    minPrice: valid[0].priceVal,
+    maxPrice: valid[validN - 1].priceVal,
+    totalListings: validN,
+    sampleCount: slice.length,
+    formula: `Trung bình mẫu ${slice.length} xe đại diện`,
+    sampleListings: slice.slice(0, 4),
     availableTrims: trims,
     availableYears: years,
     sourceUrl
   };
+}
+
+export function matchTrimFromInput(
+  rawInput: string,
+  trims: { slug: string; name: string }[]
+): { slug: string; name: string } | null {
+  if (!rawInput || !trims || trims.length === 0) return null;
+  const norm = rawInput.toLowerCase();
+  const plain = removeAccents(norm);
+
+  // Ưu tiên bản có tên dài hơn trước (vd "1.6 AT Luxury" trước "1.6 AT")
+  const sorted = [...trims].sort((a, b) => b.name.length - a.name.length);
+
+  for (const t of sorted) {
+    const tName = t.name.toLowerCase();
+    const tPlain = removeAccents(tName);
+
+    if (norm.includes(tName) || plain.includes(tPlain)) {
+      return t;
+    }
+
+    // Khớp theo tên từ khóa riêng biệt (vd: luxury, deluxe, premium, pre, ...)
+    const words = tPlain
+      .split(/[\s.-]+/)
+      .filter(w => !['1.0', '1.2', '1.4', '1.5', '1.6', '1.8', '2.0', '2.5', 'at', 'mt', 'cvt'].includes(w));
+    if (words.length > 0 && words.every(w => plain.includes(w))) {
+      return t;
+    }
+  }
+
+  return null;
 }
 
 export async function getBonbanhValuation(params: {
@@ -344,12 +433,40 @@ export async function getBonbanhValuation(params: {
   year?: number;
   trimSlug?: string;
   query?: string;
+  rawInput?: string;
+  isAuto?: boolean;
+  isManual?: boolean;
 }): Promise<ValuationResult | null> {
+  const { modelSlug, year, trimSlug, query, rawInput, isAuto, isManual } = params;
   let targetUrl = '';
-  const { modelSlug, year, trimSlug, query } = params;
+  let matchedTrim: { slug: string; name: string } | null = null;
+  let trims: { slug: string; name: string }[] = [];
+  let years: number[] = [];
 
-  if (trimSlug) {
-    targetUrl = trimSlug.startsWith('http') ? trimSlug : `https://bonbanh.com/oto/${trimSlug.replace(/^oto\//, '')}`;
+  // Nếu có modelSlug & year -> Luôn lấy thông tin phiên bản (trims) từ trang năm sx
+  if (modelSlug && year) {
+    const modelYearUrl = `https://bonbanh.com/oto/${modelSlug}-nam-${year}`;
+    try {
+      const parentHtml = await fetchHtml(modelYearUrl);
+      const extracted = extractTrimsAndYears(parentHtml, modelSlug, year);
+      trims = extracted.trims;
+      years = extracted.years;
+
+      // Nếu người dùng chưa chọn trim nhưng có rawInput -> tự động khớp bản
+      if (!trimSlug && rawInput && trims.length > 0) {
+        matchedTrim = matchTrimFromInput(rawInput, trims);
+      }
+    } catch (e) {
+      console.warn('Could not prefetch model year trims:', e);
+    }
+  }
+
+  const effectiveTrimSlug = trimSlug || matchedTrim?.slug;
+
+  if (effectiveTrimSlug) {
+    targetUrl = effectiveTrimSlug.startsWith('http')
+      ? effectiveTrimSlug
+      : `https://bonbanh.com/oto/${effectiveTrimSlug.replace(/^oto\//, '')}`;
   } else if (modelSlug && year) {
     targetUrl = `https://bonbanh.com/oto/${modelSlug}-nam-${year}`;
   } else if (modelSlug) {
@@ -363,7 +480,9 @@ export async function getBonbanhValuation(params: {
   try {
     const html = await fetchHtml(targetUrl);
     let listings = extractListings(html);
-    const { trims, years } = extractTrimsAndYears(html, modelSlug, year);
+    const pageExtracted = extractTrimsAndYears(html, modelSlug, year);
+    if (trims.length === 0) trims = pageExtracted.trims;
+    if (years.length === 0) years = pageExtracted.years;
 
     if (listings.length >= 20 && !targetUrl.includes('?q=')) {
       try {
@@ -382,7 +501,12 @@ export async function getBonbanhValuation(params: {
       listings = extractListings(fallbackHtml);
     }
 
-    return computeValuation(listings, targetUrl, trims, years);
+    const valuation = computeValuation(listings, targetUrl, trims, years, { isAuto, isManual });
+    if (valuation) {
+      valuation.selectedTrimSlug = effectiveTrimSlug || undefined;
+      valuation.matchedTrim = matchedTrim;
+    }
+    return valuation;
   } catch (err) {
     console.error('Bonbanh scraping error:', err);
     throw err;
@@ -492,11 +616,14 @@ export function parseVehicleInput(text: string) {
   }
 
   // 5. Version / Transmission
+  const isAuto = plain.includes('tu dong') || plain.includes('so tu dong') || /\bat\b/i.test(norm) || /\bcvt\b/i.test(norm);
+  const isManual = plain.includes('so san') || /\bmt\b/i.test(norm);
+
   const trimKeywords: string[] = [];
-  if (plain.includes('tu dong') || plain.includes('so tu dong') || norm.includes('at') || norm.includes('cvt')) {
+  if (isAuto) {
     trimKeywords.push('tự động');
   }
-  if (plain.includes('so san') || norm.includes('mt')) {
+  if (isManual) {
     trimKeywords.push('số sàn');
   }
   if (plain.includes('pre') || plain.includes('premium')) trimKeywords.push('pre');
@@ -512,6 +639,8 @@ export function parseVehicleInput(text: string) {
     carType,
     isBusiness,
     selectedBank,
+    isAuto,
+    isManual,
     trimKeywords,
     searchQuery: `${detectedModel ? detectedModel.name : ''} ${year} ${trimKeywords.join(' ')}`.trim()
   };

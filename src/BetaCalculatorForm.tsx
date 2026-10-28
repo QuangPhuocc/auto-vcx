@@ -166,6 +166,11 @@ export const BetaCalculatorForm: React.FC<BetaCalculatorFormProps> = ({
         if (estimate.availableTrims) {
           setAvailableTrims(estimate.availableTrims);
         }
+        if (estimate.selectedTrimSlug) {
+          setSelectedTrimSlug(estimate.selectedTrimSlug);
+        } else if (estimate.matchedTrim) {
+          setSelectedTrimSlug(estimate.matchedTrim.slug);
+        }
         if (triggerNotification) {
           triggerNotification('success', `Đã lấy giá Bonbanh: ${new Intl.NumberFormat('vi-VN').format(estimate.suggestedValue)} VNĐ`);
         }
@@ -180,15 +185,16 @@ export const BetaCalculatorForm: React.FC<BetaCalculatorFormProps> = ({
   };
 
   // Xử lý tra cứu từ danh mục
-  const handleCatalogLookup = async () => {
+  const handleCatalogLookup = async (overrideTrimSlug?: string) => {
     setIsLoading(true);
     setLookupError('');
 
     try {
+      const activeTrimSlug = overrideTrimSlug !== undefined ? overrideTrimSlug : selectedTrimSlug;
       const queryParams = new URLSearchParams();
       if (selectedModelSlug) queryParams.set('modelSlug', selectedModelSlug);
       if (catalogYear) queryParams.set('year', catalogYear.toString());
-      if (selectedTrimSlug) queryParams.set('trimSlug', selectedTrimSlug);
+      if (activeTrimSlug) queryParams.set('trimSlug', activeTrimSlug);
 
       const res = await fetch(`/api/bonbanh/estimate?${queryParams.toString()}`);
       const data = await res.json();
@@ -201,6 +207,9 @@ export const BetaCalculatorForm: React.FC<BetaCalculatorFormProps> = ({
       }
       if (data.availableTrims) {
         setAvailableTrims(data.availableTrims);
+      }
+      if (data.selectedTrimSlug) {
+        setSelectedTrimSlug(data.selectedTrimSlug);
       }
 
       // Điền thông tin dòng xe và năm sản xuất vào form
@@ -366,7 +375,7 @@ export const BetaCalculatorForm: React.FC<BetaCalculatorFormProps> = ({
                   type="button"
                   onClick={() => {
                     setSelectedTrimSlug('');
-                    handleCatalogLookup();
+                    handleCatalogLookup('');
                   }}
                   className={`px-2.5 py-1 rounded text-xs transition-all border ${
                     !selectedTrimSlug ? 'bg-blue-600 text-white border-blue-600 font-bold' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -380,6 +389,7 @@ export const BetaCalculatorForm: React.FC<BetaCalculatorFormProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedTrimSlug(t.slug);
+                      handleCatalogLookup(t.slug);
                     }}
                     className={`px-2.5 py-1 rounded text-xs transition-all border ${
                       selectedTrimSlug === t.slug ? 'bg-blue-600 text-white border-blue-600 font-bold' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -397,6 +407,29 @@ export const BetaCalculatorForm: React.FC<BetaCalculatorFormProps> = ({
         {lookupError && (
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
             {lookupError}
+          </div>
+        )}
+
+        {/* Hiển thị tóm tắt kết quả định giá nếu có */}
+        {valuationData && (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-slate-700">
+            <div>
+              <span className="font-bold text-blue-900">
+                Giá Bonbanh đề xuất: {new Intl.NumberFormat('vi-VN').format(valuationData.suggestedValue)} VNĐ
+              </span>
+              <span className="text-slate-500 ml-2">
+                (Khảo sát {valuationData.totalListings} xe • Thấp nhất: {new Intl.NumberFormat('vi-VN').format(valuationData.minPrice)} đ • Cao nhất: {new Intl.NumberFormat('vi-VN').format(valuationData.maxPrice)} đ)
+              </span>
+            </div>
+            <a
+              href={valuationData.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-blue-700 hover:text-blue-900 font-semibold flex items-center gap-1 shrink-0"
+            >
+              <span>Xem nguồn tin Bonbanh</span>
+              <ExternalLink size={12} />
+            </a>
           </div>
         )}
 
@@ -447,18 +480,6 @@ export const BetaCalculatorForm: React.FC<BetaCalculatorFormProps> = ({
               +50Tr
             </button>
           </div>
-
-          {valuationData && (
-            <a
-              href={valuationData.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
-            >
-              <span>Xem nguồn tin Bonbanh</span>
-              <ExternalLink size={12} />
-            </a>
-          )}
         </div>
       </div>
 

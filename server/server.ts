@@ -2357,12 +2357,15 @@ app.get('/api/bonbanh/catalog', (_req, res) => {
 // Get vehicle market valuation from Bonbanh.com
 app.get('/api/bonbanh/estimate', async (req, res) => {
   try {
-    const { modelSlug, year, trimSlug, query } = req.query;
+    const { modelSlug, year, trimSlug, query, isAuto, isManual, rawInput } = req.query;
     const valuation = await getBonbanhValuation({
       modelSlug: typeof modelSlug === 'string' ? modelSlug : undefined,
       year: typeof year === 'string' && year ? parseInt(year, 10) : undefined,
       trimSlug: typeof trimSlug === 'string' ? trimSlug : undefined,
-      query: typeof query === 'string' ? query : undefined
+      query: typeof query === 'string' ? query : undefined,
+      rawInput: typeof rawInput === 'string' ? rawInput : undefined,
+      isAuto: isAuto === 'true' || isAuto === '1',
+      isManual: isManual === 'true' || isManual === '1'
     });
 
     if (!valuation) {
@@ -2392,7 +2395,10 @@ app.post(['/api/bonbanh/quick-estimate', '/api/bonbanh/smart-estimate'], async (
       estimate = await getBonbanhValuation({
         modelSlug: parsed.model?.slug,
         year: parsed.year,
-        query: parsed.searchQuery
+        query: parsed.searchQuery,
+        rawInput: input,
+        isAuto: parsed.isAuto,
+        isManual: parsed.isManual
       });
     } catch (scrapingErr) {
       console.warn('Valuation fetch failed, returning parsed only:', scrapingErr);
