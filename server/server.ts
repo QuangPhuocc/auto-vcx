@@ -10,7 +10,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
-import { TOP_BRANDS, getBonbanhValuation, smartParseVehicleInput } from './bonbanh';
+import { TOP_BRANDS, getBonbanhValuation, parseVehicleInput } from './bonbanh';
 
 dotenv.config();
 
@@ -2377,14 +2377,15 @@ app.get('/api/bonbanh/estimate', async (req, res) => {
 });
 
 // Smart parse text input and auto-estimate
-app.post('/api/bonbanh/smart-estimate', async (req, res) => {
+// Tra cuu gia xe tu chuoi nhap nhanh
+app.post(['/api/bonbanh/quick-estimate', '/api/bonbanh/smart-estimate'], async (req, res) => {
   try {
     const { input } = req.body;
     if (!input || typeof input !== 'string') {
       return res.status(400).json({ message: 'Vui lòng cung cấp chuỗi mô tả xe' });
     }
 
-    const parsed = smartParseVehicleInput(input);
+    const parsed = parseVehicleInput(input);
     let estimate = null;
 
     try {

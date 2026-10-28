@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
 import * as XLSX from 'xlsx';
-import { MetaCalculatorForm } from './MetaCalculatorForm';
+import { BetaCalculatorForm } from './BetaCalculatorForm';
 
 type AgeBracket = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -374,8 +374,8 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'grid' | 'table' | 'agent'>('grid');
   const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
-  const [calculatorMode, setCalculatorMode] = useState<'official' | 'meta'>(() => {
-    return (localStorage.getItem('vcx_calc_mode') as 'official' | 'meta') || 'meta';
+  const [calculatorMode, setCalculatorMode] = useState<'official' | 'beta'>(() => {
+    return (localStorage.getItem('vcx_calc_mode') as 'official' | 'beta') || 'beta';
   });
 
   useEffect(() => {
@@ -3354,40 +3354,36 @@ export default function App() {
                   Thông tin tính phí
                 </h2>
 
-                {/* 2 Button Chế độ: Bản chính thức & Bản Meta */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 self-start sm:self-auto">
+                {/* 2 Button Chế độ: Bản chính thức & Bản Beta */}
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto text-xs">
                   <button
                     type="button"
                     onClick={() => setCalculatorMode('official')}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                       calculatorMode === 'official'
-                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/60'
-                        : 'text-slate-500 hover:text-slate-800'
+                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>Bản chính thức</span>
+                    Bản chính thức
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setCalculatorMode('meta')}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      calculatorMode === 'meta'
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                        : 'text-slate-500 hover:text-slate-800'
+                    onClick={() => setCalculatorMode('beta')}
+                    className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                      calculatorMode === 'beta'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <Sparkles size={13} className={calculatorMode === 'meta' ? 'text-amber-300 animate-pulse' : 'text-indigo-500'} />
-                    <span>Bản Meta</span>
-                    <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[9px] font-black uppercase">
-                      Mới
-                    </span>
+                    Bản Beta
                   </button>
                 </div>
               </div>
 
-              {calculatorMode === 'meta' ? (
-                <MetaCalculatorForm
+              {calculatorMode === 'beta' ? (
+                <BetaCalculatorForm
                   carType={carType}
                   setCarType={setCarType}
                   carModel={carModel}
@@ -3412,6 +3408,10 @@ export default function App() {
                   BANK_OPTIONS={BANK_OPTIONS}
                   EV_MODELS={EV_MODELS}
                   vehiclesList={vehiclesList}
+                  carModelRef={carModelRef}
+                  yearRef={yearRef}
+                  valueRef={valueRef}
+                  currentYear={currentYear}
                   triggerNotification={triggerNotification}
                 />
               ) : (
