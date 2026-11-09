@@ -371,7 +371,7 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(true);
   const [showBasePremium, setShowBasePremium] = useState(true);
   const [showDiscountedPremium, setShowDiscountedPremium] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'agent'>('grid');
+  const [viewMode, setViewMode] = useState<'table' | 'grid' | 'agent'>('table');
   const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [calculatorMode, setCalculatorMode] = useState<'official' | 'beta'>(() => {
@@ -3629,16 +3629,16 @@ export default function App() {
                   {/* View Mode Toggle */}
                   <div className="flex bg-slate-100 p-0.5 rounded-lg shrink-0">
                     <button
-                      onClick={() => setViewMode('grid')}
-                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                    >
-                      Thẻ
-                    </button>
-                    <button
                       onClick={() => setViewMode('table')}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                     >
                       Bảng
+                    </button>
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      Thẻ
                     </button>
                     <button
                       onClick={() => setViewMode('agent')}
@@ -3803,11 +3803,11 @@ export default function App() {
                 className={`p-4 sm:p-5 bg-slate-50 rounded-3xl border border-slate-200 shadow-inner ${
                   isGenerating 
                     ? '' 
-                    : (viewMode === 'agent' ? 'max-w-[740px] mx-auto w-full' : (viewMode === 'table' ? 'max-w-4xl mx-auto w-full' : 'w-full'))
+                    : ((viewMode === 'agent' || viewMode === 'table') ? 'max-w-[740px] mx-auto w-full' : 'w-full')
                 }`}
-                style={isGenerating ? { width: viewMode === 'agent' ? '740px' : (viewMode === 'table' ? '880px' : '1100px'), minWidth: viewMode === 'agent' ? '740px' : (viewMode === 'table' ? '880px' : '1100px') } : {}}
+                style={isGenerating ? { width: (viewMode === 'agent' || viewMode === 'table') ? '740px' : '1100px', minWidth: (viewMode === 'agent' || viewMode === 'table') ? '740px' : '1100px' } : {}}
               >
-                {viewMode !== 'agent' && (
+                {viewMode === 'grid' && (
                   <div className="text-center mb-3 pb-2.5 border-b border-slate-200">
                     <h2 className="text-lg md:text-xl font-black text-blue-700 uppercase tracking-tight mb-1">
                       BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE
@@ -3988,67 +3988,102 @@ export default function App() {
                 ) : viewMode === 'table' ? (() => {
                   const totalColumns = 2 + (showBasePremium ? 1 : 0) + ((currentUser && showDiscountedPremium) ? 1 : 0) + (currentUser && showCommission ? (selectedBank !== 'Không vay ngân hàng' ? 3 : 1) : 0);
                   return (
-                    <div className={`${isGenerating ? 'overflow-visible' : 'overflow-x-auto'} rounded-2xl border border-slate-200 bg-white shadow-sm`}>
+                    <div className={`${isGenerating ? 'overflow-visible' : 'overflow-x-auto'} rounded-2xl border border-slate-200 bg-white shadow-sm p-3.5`}>
+                      {/* Integrated Header inside card */}
+                      <div className="text-center mb-2.5 pb-2.5 border-b border-slate-200">
+                        <h2 className="text-lg md:text-xl font-black text-blue-700 uppercase tracking-tight mb-1">
+                          BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE
+                        </h2>
+                        {carModel && (
+                          <div className="text-sm md:text-base font-extrabold text-slate-900 uppercase tracking-wide mb-1">
+                            {carModel}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-xs md:text-sm text-slate-600 font-medium">
+                          <span className="font-semibold text-slate-700">
+                            {vehiclesList.find(opt => opt.id === carType)?.name || carType}
+                            {evModel !== 'gas' ? ` (${EV_MODELS.find(opt => opt.id === evModel)?.name || evModel})` : ''}
+                          </span>
+                          <span className="text-slate-300 select-none">|</span>
+                          <span className="whitespace-nowrap">
+                            Đời xe: <span className="font-semibold text-slate-800">{manufactureYear}</span> ({age === 0 ? 'Xe mới' : `${age} năm`})
+                          </span>
+                          <span className="text-slate-300 select-none">|</span>
+                          <span className="whitespace-nowrap">
+                            Giá trị xe: <span className="font-bold text-blue-700 font-mono tabular-nums">{new Intl.NumberFormat('vi-VN').format(carValue)} đ</span>
+                          </span>
+                        </div>
+                      </div>
+
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
-                            <th className="py-1.5 px-3 whitespace-nowrap">Hãng Bảo Hiểm</th>
-                            {showBasePremium && <th className="py-1.5 px-3 text-right whitespace-nowrap">Giá bảo hiểm</th>}
+                            <th className="py-2 px-3 whitespace-nowrap">Hãng Bảo Hiểm</th>
+                            {showBasePremium && <th className="py-2 px-3 text-right whitespace-nowrap">Giá bảo hiểm</th>}
                             {currentUser && showCommission && (
                               <>
-                                <th className="py-1.5 px-3 text-right whitespace-nowrap">Hoa hồng</th>
+                                <th className="py-2 px-3 text-right whitespace-nowrap">Hoa hồng</th>
                                 {selectedBank !== 'Không vay ngân hàng' && (
                                   <>
-                                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Chuyên thu</th>
-                                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Thực nhận</th>
+                                    <th className="py-2 px-3 text-right whitespace-nowrap">Chuyên thu</th>
+                                    <th className="py-2 px-3 text-right whitespace-nowrap">Thực nhận</th>
                                   </>
                                 )}
                               </>
                             )}
-                            {(currentUser && showDiscountedPremium) && <th className="py-1.5 px-3 text-right whitespace-nowrap">Giảm còn</th>}
-                            <th className="py-1.5 px-3 text-right whitespace-nowrap">Mức khấu trừ</th>
+                            {(currentUser && showDiscountedPremium) && <th className="py-2 px-3 text-right whitespace-nowrap">Giảm còn</th>}
+                            <th className="py-2 px-3 text-right whitespace-nowrap">Mức khấu trừ</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
                           {displayQuotes.filter(q => q.isAvailable).map((quote, idx) => {
                             const compStyle = getCompanyStyles(quote.company);
+                            const baseVal = customBasePremiums[quote.company.id] ?? quote.basePremium;
+                            const deductibleVal = customDeductibles[quote.company.id] ?? quote.deductible;
+                            const discountVal = customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium);
+
                             return (
                               <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="py-1.5 px-3 whitespace-nowrap">
+                                <td className="py-2 px-3 whitespace-nowrap">
                                   <div className="flex items-center gap-2 whitespace-nowrap">
-                                    <div className={`font-extrabold whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.company.name}</div>
+                                    <div className={`font-bold whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>{quote.company.name}</div>
                                   </div>
                                 </td>
                                 
                                 {showBasePremium && (
-                                  <td className="py-1.5 px-3 text-right font-normal text-slate-700 text-sm whitespace-nowrap">
+                                  <td className="py-2 px-3 text-right whitespace-nowrap">
                                     {currentUser && isEditMode ? (
                                       <input 
                                         type="text"
-                                        value={new Intl.NumberFormat('vi-VN').format(customBasePremiums[quote.company.id] ?? quote.basePremium)}
+                                        value={new Intl.NumberFormat('vi-VN').format(baseVal)}
                                         onChange={(e) => {
                                           const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                           setCustomBasePremiums(prev => ({...prev, [quote.company.id]: rawVal}));
                                         }}
-                                        className="w-32 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                        className="w-28 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none font-mono tabular-nums text-sm"
                                       />
                                     ) : (
-                                      formatCurrency(customBasePremiums[quote.company.id] ?? quote.basePremium)
+                                      <>
+                                        <span className="font-mono tabular-nums font-semibold text-slate-800 text-sm">
+                                          {typeof baseVal === 'number' ? new Intl.NumberFormat('vi-VN').format(baseVal) : baseVal}
+                                        </span>
+                                        <span className="text-xs text-slate-400 font-sans ml-1">đ</span>
+                                      </>
                                     )}
                                   </td>
                                 )}
 
                                 {currentUser && showCommission && (
                                   <>
-                                    <td className="py-1.5 px-3 text-right font-medium text-slate-600 whitespace-nowrap font-mono tabular-nums">
+                                    <td className="py-2 px-3 text-right font-medium text-slate-600 whitespace-nowrap font-mono tabular-nums text-sm">
                                       {(quote.commissionRate * 100).toFixed(1)}%
                                     </td>
                                     {selectedBank !== 'Không vay ngân hàng' && (
                                       <>
-                                        <td className="py-1.5 px-3 text-right font-medium text-slate-600 whitespace-nowrap font-mono tabular-nums">
+                                        <td className="py-2 px-3 text-right font-medium text-slate-600 whitespace-nowrap font-mono tabular-nums text-sm">
                                           {typeof quote.bankReferralRate === 'string' ? quote.bankReferralRate : `${(quote.bankReferralRate * 100).toFixed(1)}%`}
                                         </td>
-                                        <td className="py-1.5 px-3 text-right font-semibold text-rose-600 whitespace-nowrap font-mono tabular-nums">
+                                        <td className="py-2 px-3 text-right font-semibold text-rose-600 whitespace-nowrap font-mono tabular-nums text-sm">
                                           {typeof quote.netCommissionRate === 'string' ? quote.netCommissionRate : `${(quote.netCommissionRate * 100).toFixed(1)}%`}
                                         </td>
                                       </>
@@ -4057,7 +4092,7 @@ export default function App() {
                                 )}
                                 
                                 {(currentUser && showDiscountedPremium) && (
-                                  <td className={`py-1.5 px-3 text-right font-normal text-sm whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>
+                                  <td className={`py-2 px-3 text-right whitespace-nowrap ${compStyle.textClass}`} style={compStyle.textStyle}>
                                     {isEditMode ? (
                                       <div className="flex flex-col items-end">
                                         <input 
@@ -4073,33 +4108,41 @@ export default function App() {
                                             const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                             setCustomDiscountedPremiums(prev => ({...prev, [quote.company.id]: rawVal}));
                                           }}
-                                          className="w-32 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none font-mono tabular-nums"
+                                          className="w-28 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none font-mono tabular-nums text-sm"
                                         />
                                       </div>
                                     ) : (
-                                      <span className="font-mono tabular-nums font-semibold">
-                                        {formatCurrency(customDiscountedPremiums[quote.company.id] ?? (typeof quote.discountedPremium === 'number' ? Math.max(0, quote.discountedPremium) : quote.discountedPremium))}
-                                      </span>
+                                      <>
+                                        <span className="font-mono tabular-nums font-bold text-sm">
+                                          {typeof discountVal === 'number' ? new Intl.NumberFormat('vi-VN').format(discountVal) : discountVal}
+                                        </span>
+                                        <span className="text-xs opacity-75 font-sans ml-1">đ</span>
+                                      </>
                                     )}
                                   </td>
                                 )}
                                 
-                                <td className="py-1.5 px-3 text-right text-slate-500 font-normal whitespace-nowrap">
+                                <td className="py-2 px-3 text-right whitespace-nowrap">
                                   {currentUser && isEditMode ? (
                                     <div className="flex items-center justify-end gap-1">
                                       <input 
                                         type="text"
-                                        value={new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}
+                                        value={new Intl.NumberFormat('vi-VN').format(deductibleVal)}
                                         onChange={(e) => {
                                           const rawVal = Number(e.target.value.replace(/\D/g, ''));
                                           setCustomDeductibles(prev => ({...prev, [quote.company.id]: rawVal}));
                                         }}
-                                        className="w-28 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none"
+                                        className="w-24 text-right px-2 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold outline-none font-mono tabular-nums text-sm"
                                       />
                                       <span className="text-[10px] text-slate-400 font-bold">đ</span>
                                     </div>
                                   ) : (
-                                    `${new Intl.NumberFormat('vi-VN').format(customDeductibles[quote.company.id] ?? quote.deductible)}đ/vụ`
+                                    <>
+                                      <span className="font-mono tabular-nums text-slate-500 font-normal text-sm">
+                                        {typeof deductibleVal === 'number' ? new Intl.NumberFormat('vi-VN').format(deductibleVal) : deductibleVal}
+                                      </span>
+                                      <span className="text-xs text-slate-400 font-sans ml-0.5">đ/vụ</span>
+                                    </>
                                   )}
                                 </td>
                               </tr>
@@ -4108,8 +4151,8 @@ export default function App() {
 
                           {/* Quyền lợi Row */}
                           {showTerms && (
-                            <tr className="bg-blue-50/10 border-none">
-                              <td colSpan={totalColumns} className="p-2 border-t border-slate-200">
+                            <tr className="border-none">
+                              <td colSpan={totalColumns} className="p-2 border-none">
                                 <div className="rounded-xl border border-blue-100 bg-blue-50/20 p-2.5">
                                   <h4 className="font-extrabold text-xs flex items-center gap-1.5 text-blue-700 uppercase tracking-tight mb-1.5">
                                     <Info size={14} className="text-blue-600 shrink-0" />
@@ -4139,25 +4182,27 @@ export default function App() {
 
                           {/* Contact Row */}
                           {currentUser && (
-                            <tr className="bg-white border-none">
-                              <td colSpan={totalColumns} className="p-2.5 border-t border-slate-200">
-                                <p className="text-center text-xs md:text-sm font-black tracking-wide leading-relaxed whitespace-nowrap">
-                                  <span className="text-red-600">Liên hệ Zalo: </span>
-                                  <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
-                                  {currentUser.phone ? (
-                                    <>
-                                      <span className="text-slate-400"> - </span>
-                                      <span className="text-red-600">{currentUser.phone}</span>
-                                    </>
-                                  ) : ''}
-                                </p>
+                            <tr className="border-none">
+                              <td colSpan={totalColumns} className="p-2 pt-0 border-none">
+                                <div className="p-2 bg-white rounded-xl border border-blue-200 flex items-center justify-center shadow-xs">
+                                  <p className="text-center text-xs md:text-sm font-black tracking-wide whitespace-nowrap">
+                                    <span className="text-red-600">Liên hệ Zalo: </span>
+                                    <span style={{ color: '#2563eb' }}>{currentUser.name.toUpperCase()}</span>
+                                    {currentUser.phone ? (
+                                      <>
+                                        <span className="text-slate-400"> - </span>
+                                        <span className="text-red-600">{currentUser.phone}</span>
+                                      </>
+                                    ) : ''}
+                                  </p>
+                                </div>
                               </td>
                             </tr>
                           )}
                           {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
                             <tr className="border-none">
-                              <td colSpan={totalColumns} className="p-0 border-none">
-                                <div className="p-2.5 bg-yellow-400 text-red-600 font-extrabold text-center text-xs uppercase tracking-wider">
+                              <td colSpan={totalColumns} className="p-2 pt-0 border-none">
+                                <div className="p-2 bg-yellow-400 text-red-600 font-extrabold text-center text-xs rounded-xl shadow-xs border border-yellow-500 uppercase tracking-wider">
                                   TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                                 </div>
                               </td>
@@ -4181,9 +4226,9 @@ export default function App() {
                           {showDiscount && <col className="w-[25%]" />}
                         </colgroup>
                         <tbody>
-                          {/* Title Row - Spans full width so it is centered across entire card with no orphan word */}
+                          {/* Title Row - Strictly inside colSpan 3 so column 4 is independent for cropping/tearing */}
                           <tr className="border-none">
-                            <td colSpan={totalCols} className="p-2 border-none text-center">
+                            <td colSpan={3} className="p-2 border-none text-center">
                               <div className="text-center mb-2.5 pb-2.5 border-b border-slate-200">
                                 <h2 className="text-lg md:text-xl font-black text-rose-700 uppercase tracking-tight mb-1">
                                   BẢNG BÁO GIÁ BẢO HIỂM VẬT CHẤT XE
@@ -4211,6 +4256,7 @@ export default function App() {
                                 </div>
                               </div>
                             </td>
+                            {showDiscount && <td className="border-none"></td>}
                           </tr>
 
                           {/* Headers */}
@@ -4264,10 +4310,10 @@ export default function App() {
                             );
                           })}
 
-                          {/* Quyền lợi Row - Spans full width */}
+                          {/* Quyền lợi Row - Strictly inside colSpan 3 */}
                           {showTerms && (
                             <tr className="border-none">
-                              <td colSpan={totalCols} className="p-2 border-none">
+                              <td colSpan={3} className="p-2 border-none">
                                 <div className="rounded-xl border border-rose-100 bg-rose-50/20 p-2.5">
                                   <h4 className="font-extrabold text-xs flex items-center gap-1.5 text-rose-700 uppercase tracking-tight mb-1.5">
                                     <Info size={14} className="text-rose-500 shrink-0" />
@@ -4292,13 +4338,14 @@ export default function App() {
                                   </div>
                                 </div>
                               </td>
+                              {showDiscount && <td className="border-none"></td>}
                             </tr>
                           )}
 
-                          {/* Contact Row - Spans full width */}
+                          {/* Contact Row - Strictly inside colSpan 3 */}
                           {currentUser && (
                             <tr className="border-none">
-                              <td colSpan={totalCols} className="p-2 pt-0 border-none">
+                              <td colSpan={3} className="p-2 pt-0 border-none">
                                 <div className="p-2 bg-white rounded-xl border border-rose-200 flex items-center justify-center shadow-xs">
                                   <p className="text-center text-xs md:text-sm font-black tracking-wide whitespace-nowrap">
                                     <span className="text-red-600">Liên hệ Zalo: </span>
@@ -4312,15 +4359,17 @@ export default function App() {
                                   </p>
                                 </div>
                               </td>
+                              {showDiscount && <td className="border-none"></td>}
                             </tr>
                           )}
                           {!isGenerating && selectedBank !== 'Không vay ngân hàng' && (
                             <tr className="border-none">
-                              <td colSpan={totalCols} className="p-2 pt-0 border-none">
+                              <td colSpan={3} className="p-2 pt-0 border-none">
                                 <div className="p-2 bg-yellow-400 text-red-600 font-extrabold text-center text-xs rounded-xl shadow-xs border border-yellow-500 uppercase tracking-wider">
                                   TẤT CẢ VCX QUA BANK PHẢI CHỜ CÔNG TY BẢO HIỂM DUYỆT GIÁ, BẢNG GIÁ TRÊN CHỈ CÓ TÍNH THAM KHẢO
                                 </div>
                               </td>
+                              {showDiscount && <td className="border-none"></td>}
                             </tr>
                           )}
                         </tbody>
