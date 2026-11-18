@@ -4,7 +4,8 @@ import {
   Calculator, Car, Calendar, DollarSign, Percent, ShieldCheck, Info, CheckCircle2, 
   AlertCircle, Copy, Check, Download, Loader2, Edit3, Save, RefreshCw, Users, Key,
   ChevronDown, ChevronRight, Settings, Plus, Trash2, LogOut, FileText, UserPlus, HelpCircle, LogIn, Upload,
-  Eye, EyeOff, Sparkles, ExternalLink, Shield, Building, Briefcase, UserCheck, Search
+  Eye, EyeOff, Sparkles, ExternalLink, Shield, Building, Briefcase, UserCheck, Search,
+  UserRoundCog, X
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
 import * as XLSX from 'xlsx';
@@ -310,6 +311,10 @@ export default function App() {
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [expandedUserIds, setExpandedUserIds] = useState<Set<string>>(new Set());
 
   const [bankReferralsData, setBankReferralsData] = useState<BankReferral[]>([]);
   const [selectedBank, setSelectedBank] = useState('Không vay ngân hàng');
@@ -410,6 +415,83 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // User Hierarchy Tree for VASS-style rendering
+  const userHierarchyTree = useMemo(() => {
+    const userMap = new Map<string, { user: User; children: any[] }>();
+    const roots: { user: User; children: any[] }[] = [];
+
+    usersList.forEach(u => {
+      userMap.set(u.id, { user: u, children: [] });
+    });
+
+    usersList.forEach(u => {
+      const node = userMap.get(u.id);
+      if (!node) return;
+      if (u.parentId && userMap.has(u.parentId)) {
+        userMap.get(u.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    const roleOrder: Record<string, number> = { master: 1, admin: 2, client: 3, user: 4 };
+    const sortNodes = (arr: any[]) => {
+      arr.sort((a, b) => {
+        const diff = (roleOrder[a.user.role] || 99) - (roleOrder[b.user.role] || 99);
+        if (diff !== 0) return diff;
+        return (a.user.name || '').localeCompare(b.user.name || '');
+      });
+      arr.forEach(item => sortNodes(item.children));
+    };
+
+    sortNodes(roots);
+    return roots;
+  }, [usersList]);
+
+  const toggleExpandUser = (id: string) => {
+    setExpandedUserIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const expandAllUsers = () => {
+    const all = new Set<string>();
+    usersList.forEach(u => all.add(u.id));
+    setExpandedUserIds(all);
+  };
+
+  const collapseAllUsers = () => {
+    const minSet = new Set<string>();
+    usersList.forEach(u => {
+      if (u.role === 'master' || u.role === 'admin') minSet.add(u.id);
+    });
+    setExpandedUserIds(minSet);
+  };
+
+  const openCreateModal = () => {
+    setNewName('');
+    setNewPhone('');
+    setNewUsername('');
+    setNewPassword('');
+    const defRole = currentUser?.role === 'master' ? 'admin' : currentUser?.role === 'admin' ? 'client' : 'user';
+    setNewRole(defRole);
+    setSelectedParentId(currentUser?.role === 'master' ? '' : currentUser?.id || '');
+    setShowCreatePassword(false);
+    setUserCrudError('');
+    setShowCreateUserModal(true);
+  };
+
+  const openEditModal = (u: User) => {
+    setEditingUser(u);
+    setEditName(u.name);
+    setEditPhone(u.phone || '');
+    setEditPassword('');
+    setShowEditPassword(false);
+  };
 
   // Commissions Management State
   const [selectedCommUser, setSelectedCommUser] = useState<string>('');
@@ -619,7 +701,18 @@ export default function App() {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
-      .then(data => setUsersList(data));
+      .then(data => {
+        if (Array.isArray(data)) {
+          setUsersList(data);
+          const parentIds = new Set<string>();
+          data.forEach((u: any) => {
+            if (u.role === 'master' || u.role === 'admin' || u.role === 'client') {
+              parentIds.add(u.id);
+            }
+          });
+          setExpandedUserIds(parentIds);
+        }
+      });
 
     fetch('/api/users/tree', {
       headers: { Authorization: `Bearer ${token}` }
@@ -717,6 +810,8 @@ export default function App() {
       setNewPassword('');
       setNewName('');
       setNewPhone('');
+      setSelectedParentId('');
+      setShowCreateUserModal(false);
       fetchUsers();
     })
     .catch(err => {
@@ -724,8 +819,11 @@ export default function App() {
     });
   };
 
-  const handleUpdateUser = (id: string) => {
-    fetch(`/api/users/${id}`, {
+  const handleUpdateUser = (id?: string) => {
+    const targetId = id || editingUser?.id;
+    if (!targetId) return;
+
+    fetch(`/api/users/${targetId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -743,6 +841,7 @@ export default function App() {
         throw new Error(data.message || 'Update failed');
       }
       triggerNotification('success', `Cập nhật thông tin tài khoản thành công`);
+      setEditingUser(null);
       setEditingUserId(null);
       setEditName('');
       setEditPassword('');
@@ -3181,8 +3280,8 @@ export default function App() {
               <ShieldCheck size={20} className="lg:size-6" />
             </div>
             <div>
-              <h1 className="text-sm lg:text-base xl:text-lg font-black text-slate-800 tracking-tight leading-tight">Báo giá VCX</h1>
-              <p className="text-[9px] lg:text-[10px] text-red-600 font-bold tracking-wider uppercase">Bản dùng thử có thể có sai sót</p>
+              <h1 className="text-sm lg:text-base xl:text-lg font-black text-slate-800 tracking-tight leading-tight">VẬT CHẤT XE</h1>
+              <p className="text-[8px] text-red-500 font-medium tracking-tight">Bản dùng thử có thể có sai sót</p>
             </div>
           </div>
 
@@ -3195,13 +3294,13 @@ export default function App() {
                     onClick={() => setActiveTab('logs')}
                     className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
-                    Lịch sử hệ thống
+                    Lịch sử
                   </button>
                   <button 
                     onClick={() => setActiveTab('users')}
                     className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
-                    Quản lý Tài khoản
+                    Tài khoản
                   </button>
                 </>
               )}
@@ -3211,7 +3310,7 @@ export default function App() {
                   onClick={() => setActiveTab('commissions')}
                   className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'commissions' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                 >
-                  Quản lý Hoa hồng
+                  Hoa hồng
                 </button>
               )}
 
@@ -3236,8 +3335,8 @@ export default function App() {
             <div className="flex items-center gap-2 lg:gap-3 shrink-0 border-l border-slate-200 pl-3">
               {currentUser ? (
                 <>
-                  <div className="text-right hidden md:block">
-                    <div className="font-bold text-slate-800 text-xs lg:text-sm whitespace-nowrap">{currentUser.name}</div>
+                  <div className="text-right hidden md:block max-w-[130px] lg:max-w-[180px] xl:max-w-[220px]">
+                    <div className="font-bold text-slate-800 text-xs lg:text-sm truncate" title={currentUser.name}>{currentUser.name}</div>
                     <div className="text-[9px] lg:text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">
                       {currentUser.role === 'master' ? 'Master' : currentUser.role === 'admin' ? 'Quản lý' : currentUser.role === 'client' ? 'Đại lý' : 'CTV'}
                     </div>
@@ -4447,462 +4546,451 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 2: Users Management */}
-        {activeTab === 'users' && currentUser && currentUser.role !== 'user' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                <Users size={22} className="text-blue-600" />
-                Quản lý Tài khoản
-              </h2>
+        {/* Tab 2: Users Management (VASS Style) */}
+        {activeTab === 'users' && currentUser && currentUser.role !== 'user' && (() => {
+          const filteredUsers = usersList.filter(u => {
+            if (!userSearchTerm.trim()) return true;
+            const term = userSearchTerm.toLowerCase();
+            return (
+              u.name?.toLowerCase().includes(term) ||
+              u.username?.toLowerCase().includes(term) ||
+              (u.phone && u.phone.includes(term))
+            );
+          });
 
-              <div className="flex items-center gap-2">
-                {currentUser.role === 'master' && (
-                  <button
-                    onClick={() => {
-                      const text = usersList.map(u => `Tài khoản: @${u.username} | Mật khẩu: ${u.password} | Vai trò: ${u.role.toUpperCase()} | Trực thuộc: ${u.parentUsername ? `@${u.parentUsername}` : 'MASTER'}`).join('\n');
-                      navigator.clipboard.writeText(text);
-                      triggerNotification('success', 'Đã sao chép danh sách tài khoản vào bộ nhớ tạm!');
-                    }}
-                    type="button"
-                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Copy size={14} />
-                    Xuất nhanh danh sách tài khoản
-                  </button>
-                )}
-                <button 
-                  onClick={() => setShowTreeDiagram(!showTreeDiagram)}
-                  className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs border border-blue-200 transition-all flex items-center gap-1.5"
-                >
-                  <FileText size={16} />
-                  {showTreeDiagram ? 'Xem dạng bảng' : 'Xem dạng sơ đồ cây'}
-                </button>
-              </div>
-            </div>
+          const renderTreeRow = (node: { user: User; children: any[] }, depth: number): React.ReactNode => {
+            const u = node.user;
+            const hasChildren = node.children && node.children.length > 0;
+            const isExpanded = expandedUserIds.has(u.id);
 
-            {showTreeDiagram ? (
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-x-auto">
-                <h3 className="font-bold text-slate-700 text-sm mb-4">Sơ đồ cấu trúc cây tài khoản:</h3>
-                {userTree.length > 0 ? (
-                  <div className="inline-block min-w-full">
-                    {renderTreeNodes(userTree)}
-                  </div>
-                ) : (
-                  <div className="text-slate-400 text-sm py-8 text-center font-bold">Chưa có tài khoản cấp dưới trực thuộc</div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                
-                {/* Left column stack: Create account + Excel import */}
-                <div className="lg:col-span-1 space-y-6 flex flex-col justify-start">
-                  
-                  {/* Create Subordinate account form */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <UserPlus size={18} className="text-blue-600" />
-                      Tạo tài khoản
-                    </h3>
+            const isNodeMaster = u.role === 'master';
+            const isNodeAdmin = u.role === 'admin';
+            const isNodeClient = u.role === 'client';
 
-                    <form onSubmit={handleCreateUser} className="space-y-3.5">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">1. Họ và tên</label>
-                        <input 
-                          type="text" 
-                          value={newName}
-                          onChange={e => setNewName(e.target.value)}
-                          required
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          placeholder="Ví dụ: Nguyễn Văn A..."
-                        />
-                      </div>
+            let rowClass = "border-t border-slate-100 transition-colors ";
+            let avatarClass = "grid h-8 w-8 place-items-center rounded-full shrink-0 ";
+            let branchLine = null;
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">2. Số điện thoại</label>
-                        <input 
-                          type="tel" 
-                          value={newPhone}
-                          maxLength={10}
-                          onChange={e => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                            const prevPhone = newPhone;
-                            setNewPhone(val);
-                            if (!newUsername || newUsername === prevPhone) {
-                              setNewUsername(val);
-                            }
-                          }}
-                          required
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          placeholder="09xxxxxxxx (10 chữ số)"
-                        />
-                      </div>
+            if (isNodeMaster) {
+              rowClass += "bg-orange-50/40 hover:bg-orange-50/70 border-l-4 border-l-orange-500 font-medium";
+              avatarClass += "bg-orange-200 text-orange-800 shadow-2xs";
+            } else if (isNodeAdmin) {
+              rowClass += "bg-white hover:bg-blue-50/40 border-l-4 border-l-blue-500";
+              avatarClass += "bg-blue-100 text-blue-800 shadow-2xs";
+              branchLine = <span className="font-mono text-xs font-bold text-blue-500 shrink-0 select-none mr-1">├──</span>;
+            } else if (isNodeClient) {
+              rowClass += "bg-amber-50/60 hover:bg-amber-100/60 border-l-4 border-l-emerald-500";
+              avatarClass += "bg-amber-200 text-amber-950 font-bold border border-amber-300 shadow-2xs";
+              branchLine = <span className="font-mono text-xs font-bold text-emerald-600 shrink-0 select-none mr-1">├─</span>;
+            } else {
+              rowClass += "bg-stone-50/40 hover:bg-purple-50/30 border-l-4 border-l-purple-300";
+              avatarClass += "bg-purple-100 text-purple-700";
+              branchLine = <span className="font-mono text-xs text-purple-400 shrink-0 select-none mr-1">└──</span>;
+            }
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">3. Tên đăng nhập</label>
-                        <input 
-                          type="text" 
-                          value={newUsername}
-                          onChange={e => setNewUsername(e.target.value)}
-                          required
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          placeholder="Tên tài khoản (mặc định SĐT)..."
-                        />
-                      </div>
+            const canDelete = 
+              (currentUser?.role === 'master' && u.role !== 'master') ||
+              (currentUser?.role === 'admin' && u.role === 'client') ||
+              (currentUser?.role === 'client' && u.role === 'user');
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">4. Mật khẩu</label>
-                        <div className="relative">
-                          <input 
-                            type={showCreatePassword ? "text" : "password"} 
-                            value={newPassword}
-                            onChange={e => setNewPassword(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold pr-9 font-mono"
-                            placeholder="Mặc định: sdt@"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowCreatePassword(!showCreatePassword)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5"
-                            tabIndex={-1}
-                            title={showCreatePassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                          >
-                            {showCreatePassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-slate-400">Để trống sẽ tự động lấy: {newPhone ? `${newPhone}@` : 'sdt@'}</p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">5. Vai trò</label>
-                        <select 
-                          value={newRole}
-                          onChange={e => setNewRole(e.target.value as any)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                        >
-                          {currentUser.role === 'master' && (
-                            <>
-                              <option value="admin">Quản lý</option>
-                              <option value="client">Đại lý</option>
-                              <option value="user">CTV</option>
-                            </>
-                          )}
-                          {currentUser.role === 'admin' && <option value="client">Đại lý</option>}
-                          {currentUser.role === 'client' && <option value="user">CTV</option>}
-                        </select>
-                      </div>
-
-                      {currentUser.role === 'master' && (newRole === 'client' || newRole === 'user') && (
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">6. Trực thuộc Quản lý / Đại lý</label>
-                          <select 
-                            value={selectedParentId}
-                            onChange={e => setSelectedParentId(e.target.value)}
-                            required
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          >
-                            <option value="">-- Chọn tài khoản quản lý --</option>
-                            {newRole === 'client' && usersList.filter(u => u.role === 'admin').map(u => (
-                              <option key={u.id} value={u.id}>{u.name} (@{u.username})</option>
-                            ))}
-                            {newRole === 'user' && usersList.filter(u => u.role === 'client').map(u => (
-                              <option key={u.id} value={u.id}>{u.name} (@{u.username})</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {userCrudError && (
-                        <div className="flex items-center gap-1.5 text-red-600 text-xs font-bold bg-red-50 p-2.5 rounded-xl">
-                          <AlertCircle size={14} />
-                          <span>{userCrudError}</span>
-                        </div>
-                      )}
-
-                      <button 
-                        type="submit" 
-                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all"
-                      >
-                        Tạo tài khoản
-                      </button>
-                    </form>
-                  </div>
-
-                  {/* Excel Batch Creation Section inside Left Column */}
-                  {!showBatchExcel ? (
-                    <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <FileText size={16} className="text-blue-600 shrink-0" />
-                        <span className="text-xs font-bold text-slate-700">Tạo tài khoản bằng Excel</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowBatchExcel(true)}
-                        className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs border border-blue-200 transition-all flex items-center gap-1 shrink-0"
-                      >
-                        <Upload size={12} />
-                        Mở tệp
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-xs md:text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                            <FileText size={16} className="text-blue-600" />
-                            Tạo tài khoản bằng Excel
-                          </h3>
-                          <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Tải file mẫu về, nhập danh sách rồi upload.</p>
-                        </div>
-
+            return (
+              <React.Fragment key={u.id}>
+                <tr className={rowClass}>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-1.5" style={{ paddingLeft: `${depth * 20}px` }}>
+                      {branchLine}
+                      {hasChildren ? (
                         <button
                           type="button"
-                          onClick={() => setShowBatchExcel(false)}
-                          className="text-slate-400 hover:text-slate-600 text-xs font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-all shrink-0"
+                          onClick={() => toggleExpandUser(u.id)}
+                          className="p-1 rounded hover:bg-slate-200 text-slate-600 shrink-0 transition-colors"
+                          title={isExpanded ? "Thu gọn" : "Mở rộng danh sách cấp dưới"}
                         >
-                          Thu gọn
+                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </button>
+                      ) : depth === 0 ? null : (
+                        <span className="w-5 shrink-0" />
+                      )}
+                      <div className={avatarClass}>
+                        <UserRoundCog size={15} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-800 text-xs sm:text-sm">
+                          {u.name}
+                        </div>
+                        {u.phone && <div className="text-[11px] text-slate-500">{u.phone}</div>}
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    {u.role === 'master' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
+                        <Shield size={12} /> Master
+                      </span>
+                    )}
+                    {u.role === 'admin' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                        <Building size={12} /> Quản lý
+                      </span>
+                    )}
+                    {u.role === 'client' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <Briefcase size={12} /> Đại lý
+                      </span>
+                    )}
+                    {u.role === 'user' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-stone-100 text-stone-600 border border-stone-200">
+                        <UserCheck size={12} /> CTV
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                    {hasChildren ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded border border-slate-300 text-[11px] text-slate-700 bg-white font-semibold shadow-2xs">
+                        {node.children.length}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    )}
+                  </td>
+
+                  <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-slate-600 text-xs">
+                    @{u.username}
+                  </td>
+
+                  {currentUser?.role === 'master' && (
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-slate-200 font-mono font-bold text-slate-700 w-fit text-xs">
+                        <span className="select-all">{showPasswords[u.id] ? u.password : '••••••••'}</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
+                          className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                          title={showPasswords[u.id] ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        >
+                          {showPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
                       </div>
+                    </td>
+                  )}
 
+                  <td className="px-3 py-2.5 whitespace-nowrap text-right">
+                    <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={downloadExcelTemplate}
                         type="button"
-                        className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs border border-blue-200 transition-all flex items-center justify-center gap-1.5"
+                        onClick={() => {
+                          const text = `Tài khoản: ${u.username} | Mật khẩu: ${u.password || ''}`;
+                          navigator.clipboard.writeText(text);
+                          setCopiedUserId(u.id);
+                          setTimeout(() => setCopiedUserId(null), 1500);
+                          triggerNotification('success', `Đã sao chép tài khoản @${u.username}`);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Sao chép thông tin tài khoản"
                       >
-                        <Download size={12} />
-                        Tải Excel mẫu
+                        {copiedUserId === u.id ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
                       </button>
-
-                      <div className="grid grid-cols-1 gap-4 items-start">
-                        {/* File Upload Selector */}
-                        <div className="space-y-2">
-                          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide">Chọn File Excel đã chỉnh sửa:</label>
-                          <div 
-                            onDragEnter={handleDrag}
-                            onDragOver={handleDrag}
-                            onDragLeave={handleDrag}
-                            onDrop={handleDrop}
-                            onClick={() => fileInputRef.current?.click()}
-                            className={`w-full py-5 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
-                          >
-                            <input 
-                              type="file" 
-                              ref={fileInputRef}
-                              accept=".xlsx, .xls"
-                              onChange={handleExcelUpload}
-                              className="hidden"
-                            />
-                            <Upload className="text-slate-400" size={20} />
-                            <div className="text-xs font-bold text-slate-700 text-center">
-                              Kéo thả file Excel vào đây hoặc click để chọn tệp
-                            </div>
-                            <div className="text-[10px] font-semibold text-slate-400 uppercase">
-                              Hỗ trợ định dạng .xlsx, .xls
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Parsed Rows Preview & Action */}
-                        {parsedExcelRows.length > 0 && (
-                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in duration-200">
-                            <div className="flex flex-col gap-2">
-                              <span className="text-xs font-bold text-slate-700">Đã đọc được {parsedExcelRows.length} tài khoản</span>
-                              <button
-                                onClick={handleConfirmBatchCreate}
-                                disabled={isUploading}
-                                type="button"
-                                className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                              >
-                                {isUploading ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
-                                Xác nhận tạo tài khoản
-                              </button>
-                            </div>
-
-                            <div className="max-h-[120px] overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 space-y-1">
-                              {parsedExcelRows.slice(0, 10).map((row, index) => (
-                                <div key={index} className="text-[10px] font-semibold text-slate-600 flex justify-between border-b border-slate-100 pb-0.5">
-                                  <span>@{row.username} ({row.name})</span>
-                                  <span className="text-blue-600 uppercase font-bold">{row.role} → @{row.parentUsername || 'master'}</span>
-                                </div>
-                              ))}
-                              {parsedExcelRows.length > 10 && (
-                                <div className="text-[9px] text-slate-400 text-center font-bold italic pt-1">... và {parsedExcelRows.length - 10} tài khoản khác</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Batch Upload Errors Display */}
-                      {batchUploadErrors.length > 0 && (
-                        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 animate-in fade-in duration-200">
-                          <h4 className="text-red-800 font-bold text-xs flex items-center gap-1">
-                            <AlertCircle size={14} />
-                            Có lỗi xảy ra khi tạo tài khoản hàng loạt:
-                          </h4>
-                          <ul className="list-disc pl-4 text-xs font-semibold text-red-700 space-y-1 max-h-[150px] overflow-y-auto">
-                            {batchUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
-                          </ul>
-                        </div>
+                      <button
+                        onClick={() => openEditModal(u)}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Chỉnh sửa thông tin"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDeleteUser(u.id, u.username)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Xoá tài khoản"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       )}
                     </div>
+                  </td>
+                </tr>
+
+                {hasChildren && isExpanded && node.children.map((child: any) => renderTreeRow(child, depth + 1))}
+              </React.Fragment>
+            );
+          };
+
+          return (
+            <div className="space-y-4 pb-12 animate-in fade-in duration-200">
+              {/* Top Control Bar: Search & Action buttons */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="relative w-full sm:w-80">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm theo họ tên, username, SĐT…"
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                    className="pl-8 pr-7 w-full h-8 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                  {userSearchTerm && (
+                    <button
+                      onClick={() => setUserSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700"
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
 
-                {/* Subordinate account table list on the right */}
-                <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col lg:h-[780px]">
-                  {(() => {
-                    const filteredUsers = usersList.filter(u => {
-                      if (!userSearchTerm.trim()) return true;
-                      const term = userSearchTerm.toLowerCase();
-                      return (
-                        u.name?.toLowerCase().includes(term) ||
-                        u.username?.toLowerCase().includes(term) ||
-                        (u.phone && u.phone.includes(term))
-                      );
-                    });
+                <div className="flex items-center gap-1.5 self-end sm:self-auto flex-wrap text-xs">
+                  <button
+                    type="button"
+                    onClick={expandAllUsers}
+                    className="h-8 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                  >
+                    Mở tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={collapseAllUsers}
+                    className="h-8 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                  >
+                    Thu gọn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchUsers}
+                    className="h-8 px-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors"
+                    title="Làm mới danh sách"
+                  >
+                    <RefreshCw size={13} />
+                  </button>
+                  {currentUser.role === 'master' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = usersList.map(u => `Tài khoản: @${u.username} | Mật khẩu: ${u.password} | Vai trò: ${u.role.toUpperCase()} | Trực thuộc: ${u.parentUsername ? `@${u.parentUsername}` : 'MASTER'}`).join('\n');
+                        navigator.clipboard.writeText(text);
+                        triggerNotification('success', 'Đã sao chép danh sách tài khoản vào bộ nhớ tạm!');
+                      }}
+                      className="h-8 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center gap-1"
+                      title="Sao chép toàn bộ danh sách tài khoản"
+                    >
+                      <Copy size={13} />
+                      Xuất danh sách
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchExcel(!showBatchExcel)}
+                    className={`h-8 px-3 rounded-xl border font-semibold text-xs transition-colors flex items-center gap-1 ${showBatchExcel ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-slate-200 hover:bg-slate-50 text-slate-700'}`}
+                  >
+                    <Upload size={13} />
+                    Nhập Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="h-8 px-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1 shrink-0"
+                  >
+                    <Plus size={14} />
+                    {currentUser.role === 'master' ? 'Thêm tài khoản' : currentUser.role === 'admin' ? 'Tạo Đại lý' : 'Tạo CTV'}
+                  </button>
+                </div>
+              </div>
 
-                    return (
-                      <>
-                        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 shrink-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                              Danh sách tài khoản
-                            </h3>
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
-                              {filteredUsers.length} / {usersList.length}
-                            </span>
-                          </div>
+              {/* Collapsible Excel Batch Upload Section */}
+              {showBatchExcel && (
+                <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div>
+                      <h3 className="text-xs md:text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <FileText size={16} className="text-blue-600" />
+                        Tạo tài khoản hàng loạt bằng Excel
+                      </h3>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Tải file mẫu về máy, nhập danh sách tài khoản rồi kéo thả file vào ô bên dưới.</p>
+                    </div>
 
-                          <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                              type="text"
-                              value={userSearchTerm}
-                              onChange={(e) => setUserSearchTerm(e.target.value)}
-                              placeholder="Tìm tên, SĐT, tài khoản..."
-                              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-56 shadow-2xs"
-                            />
-                          </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={downloadExcelTemplate}
+                        type="button"
+                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs border border-blue-200 transition-all flex items-center gap-1.5"
+                      >
+                        <Download size={13} />
+                        Tải file Excel mẫu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowBatchExcel(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-all"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                    <div className="space-y-2">
+                      <div 
+                        onDragEnter={handleDrag}
+                        onDragOver={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`w-full py-6 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
+                      >
+                        <input 
+                          type="file" 
+                          ref={fileInputRef}
+                          accept=".xlsx, .xls"
+                          onChange={handleExcelUpload}
+                          className="hidden"
+                        />
+                        <Upload className="text-slate-400" size={22} />
+                        <div className="text-xs font-bold text-slate-700 text-center">
+                          Kéo thả file Excel vào đây hoặc click để chọn tệp
+                        </div>
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase">
+                          Hỗ trợ định dạng .xlsx, .xls
+                        </div>
+                      </div>
+                    </div>
+
+                    {parsedExcelRows.length > 0 && (
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">Đã đọc {parsedExcelRows.length} tài khoản</span>
+                          <button
+                            onClick={handleConfirmBatchCreate}
+                            disabled={isUploading}
+                            type="button"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1"
+                          >
+                            {isUploading ? <Loader2 className="animate-spin" size={13} /> : <Plus size={13} />}
+                            Xác nhận tạo
+                          </button>
                         </div>
 
-                        <div className="overflow-x-auto overflow-y-auto flex-1">
-                          <table className="w-full text-left border-collapse table-auto">
-                            <thead>
-                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-10">
-                                <th className="px-3 py-3 whitespace-nowrap">Tài khoản</th>
-                                <th className="px-3 py-3 whitespace-nowrap">Họ tên</th>
-                                <th className="px-3 py-3 whitespace-nowrap">SĐT</th>
-                                <th className="px-3 py-3 whitespace-nowrap">Vai trò</th>
-                                {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Trực thuộc</th>}
-                                {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Mật khẩu</th>}
-                                <th className="px-3 py-3 whitespace-nowrap text-right">Thao tác</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
-                              {filteredUsers.length > 0 ? (
-                                filteredUsers.map(u => (
-                            <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-3 py-2.5 whitespace-nowrap font-bold text-slate-800">@{u.username}</td>
-                              <td className="px-3 py-2.5 whitespace-nowrap">
-                                {editingUserId === u.id ? (
-                                  <input 
-                                    type="text"
-                                    value={editName}
-                                    onChange={e => setEditName(e.target.value)}
-                                    className="px-2 py-1 border rounded bg-slate-50 font-medium w-32"
-                                  />
-                                ) : (
-                                  u.name
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 whitespace-nowrap">
-                                {editingUserId === u.id ? (
-                                  <input 
-                                    type="text"
-                                    value={editPhone}
-                                    onChange={e => setEditPhone(e.target.value)}
-                                    className="px-2 py-1 border rounded bg-slate-50 font-medium w-28"
-                                    placeholder="SĐT..."
-                                  />
-                                ) : (
-                                  u.phone || '-'
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 whitespace-nowrap">
-                                {u.role === 'master' && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
-                                    <Shield size={12} /> Master
-                                  </span>
-                                )}
-                                {u.role === 'admin' && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
-                                    <Building size={12} /> Quản lý
-                                  </span>
-                                )}
-                                {u.role === 'client' && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                    <Briefcase size={12} /> Đại lý
-                                  </span>
-                                )}
-                                {u.role === 'user' && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
-                                    <UserCheck size={12} /> CTV
-                                  </span>
-                                )}
-                              </td>
-                              {currentUser.role === 'master' && (
-                                <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-slate-600">
-                                  {u.parentUsername ? (
-                                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[11px]">
-                                      @{u.parentUsername}
+                        <div className="max-h-[110px] overflow-y-auto border border-slate-200 rounded-xl bg-white p-2 space-y-1">
+                          {parsedExcelRows.slice(0, 10).map((row, index) => (
+                            <div key={index} className="text-[10px] font-semibold text-slate-600 flex justify-between border-b border-slate-100 pb-0.5">
+                              <span>@{row.username} ({row.name})</span>
+                              <span className="text-blue-600 uppercase font-bold">{row.role} → @{row.parentUsername || 'master'}</span>
+                            </div>
+                          ))}
+                          {parsedExcelRows.length > 10 && (
+                            <div className="text-[9px] text-slate-400 text-center font-bold italic pt-1">... và {parsedExcelRows.length - 10} tài khoản khác</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {batchUploadErrors.length > 0 && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-1">
+                      <h4 className="text-red-800 font-bold text-xs flex items-center gap-1">
+                        <AlertCircle size={14} />
+                        Có lỗi xảy ra khi tạo tài khoản hàng loạt:
+                      </h4>
+                      <ul className="list-disc pl-4 text-xs font-semibold text-red-700 space-y-0.5 max-h-[100px] overflow-y-auto">
+                        {batchUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tree Hierarchy Table (Full-width) */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-3">Họ và tên</th>
+                        <th className="px-3 py-3">Cấp bậc</th>
+                        <th className="px-3 py-3 text-center">Cấp dưới</th>
+                        <th className="px-3 py-3">Tài khoản</th>
+                        {currentUser.role === 'master' && <th className="px-3 py-3">Mật khẩu</th>}
+                        <th className="px-3 py-3 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                      {userSearchTerm.trim() ? (
+                        /* Flat View when searching */
+                        filteredUsers.length === 0 ? (
+                          <tr>
+                            <td colSpan={currentUser.role === 'master' ? 6 : 5} className="p-8 text-center text-xs text-slate-400 font-bold">
+                              Không tìm thấy tài khoản nào khớp với từ khóa "{userSearchTerm}"
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredUsers.map(u => {
+                            const canDelete = 
+                              (currentUser?.role === 'master' && u.role !== 'master') ||
+                              (currentUser?.role === 'admin' && u.role === 'client') ||
+                              (currentUser?.role === 'client' && u.role === 'user');
+
+                            return (
+                              <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                                <td className="px-3 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-700 shrink-0">
+                                      <UserRoundCog size={15} />
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-slate-800 text-xs sm:text-sm">{u.name}</div>
+                                      {u.phone && <div className="text-[11px] text-slate-500">{u.phone}</div>}
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                  {u.role === 'master' && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
+                                      <Shield size={12} /> Master
                                     </span>
-                                  ) : (
-                                    <span className="text-slate-400 font-semibold italic text-[11px]">MASTER</span>
+                                  )}
+                                  {u.role === 'admin' && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                      <Building size={12} /> Quản lý
+                                    </span>
+                                  )}
+                                  {u.role === 'client' && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                      <Briefcase size={12} /> Đại lý
+                                    </span>
+                                  )}
+                                  {u.role === 'user' && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-stone-100 text-stone-600 border border-stone-200">
+                                      <UserCheck size={12} /> CTV
+                                    </span>
                                   )}
                                 </td>
-                              )}
-                              {currentUser.role === 'master' && (
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="flex items-center gap-1.5 bg-blue-50/20 px-2 py-1 rounded-lg border border-slate-100 font-mono font-bold text-blue-600 w-fit">
-                                    <span className="select-all text-xs">{showPasswords[u.id] ? u.password : '••••••••'}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowPasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
-                                      className="text-slate-400 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer"
-                                      title={showPasswords[u.id] ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                                    >
-                                      {showPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
-                                    </button>
-                                  </div>
+
+                                <td className="px-3 py-2.5 text-center text-slate-400 text-xs">—</td>
+
+                                <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-slate-600 text-xs">
+                                  <div>@{u.username}</div>
+                                  {u.parentUsername && <div className="text-[10px] text-slate-400">Trực thuộc: @{u.parentUsername}</div>}
                                 </td>
-                              )}
-                              <td className="px-3 py-2.5 whitespace-nowrap text-right">
-                                {editingUserId === u.id ? (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <input 
-                                      type="password"
-                                      placeholder="Mật khẩu mới..."
-                                      value={editPassword}
-                                      onChange={e => setEditPassword(e.target.value)}
-                                      className="px-2 py-1 border rounded bg-slate-50 font-medium w-28"
-                                    />
-                                    <button 
-                                      onClick={() => handleUpdateUser(u.id)}
-                                      className="px-2.5 py-1 bg-blue-600 text-white rounded font-bold"
-                                    >
-                                      Lưu
-                                    </button>
-                                    <button 
-                                      onClick={() => setEditingUserId(null)}
-                                      className="px-2.5 py-1 bg-slate-200 text-slate-700 rounded font-bold"
-                                    >
-                                      Hủy
-                                    </button>
-                                  </div>
-                                ) : (
+
+                                {currentUser.role === 'master' && (
+                                  <td className="px-3 py-2.5 whitespace-nowrap">
+                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 font-mono font-bold text-slate-700 w-fit text-xs">
+                                      <span className="select-all">{showPasswords[u.id] ? u.password : '••••••••'}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowPasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
+                                        className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                                        title={showPasswords[u.id] ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                                      >
+                                        {showPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+
+                                <td className="px-3 py-2.5 whitespace-nowrap text-right">
                                   <div className="flex items-center justify-end gap-1.5">
-                                    {/* Quick copy credentials */}
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -4915,58 +5003,329 @@ export default function App() {
                                       className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                       title="Sao chép thông tin tài khoản"
                                     >
-                                      {copiedUserId === u.id ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                                      {copiedUserId === u.id ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
                                     </button>
-                                    <button 
-                                      onClick={() => {
-                                        setEditingUserId(u.id);
-                                        setEditName(u.name);
-                                        setEditPassword('');
-                                        setEditPhone(u.phone || '');
-                                      }}
+                                    <button
+                                      onClick={() => openEditModal(u)}
                                       className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                      title="Đổi mật khẩu / tên / SĐT"
+                                      title="Chỉnh sửa thông tin"
                                     >
-                                      <Edit3 size={16} />
+                                      <Edit3 size={15} />
                                     </button>
-                                    {/* Subordinate delete button: Master only deletes admin, admin deletes direct client, client deletes direct user */}
-                                    {((currentUser.role === 'master' && u.role === 'admin') || 
-                                      (currentUser.role === 'admin' && u.role === 'client') || 
-                                      (currentUser.role === 'client' && u.role === 'user') ||
-                                      (currentUser.role === 'master' && u.role !== 'master')) && (
-                                      <button 
+                                    {canDelete && (
+                                      <button
                                         onClick={() => handleDeleteUser(u.id, u.username)}
                                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                         title="Xoá tài khoản"
                                       >
-                                        <Trash2 size={16} />
+                                        <Trash2 size={15} />
                                       </button>
                                     )}
                                   </div>
-                                )}
-                              </td>
-                            </tr>
-                          ))
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )
+                      ) : (
+                        /* Tree Hierarchy View */
+                        userHierarchyTree.length > 0 ? (
+                          userHierarchyTree.map(node => renderTreeRow(node, 0))
                         ) : (
                           <tr>
-                            <td colSpan={currentUser.role === 'master' ? 7 : 5} className="px-3 py-8 text-center text-slate-400 font-bold">
-                              {userSearchTerm ? 'Không tìm thấy tài khoản phù hợp với từ khoá' : 'Chưa có tài khoản cấp dưới trực thuộc'}
+                            <td colSpan={currentUser.role === 'master' ? 6 : 5} className="px-3 py-8 text-center text-slate-400 font-bold">
+                              Chưa có tài khoản cấp dưới trực thuộc
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-            {/* Quick text credentials list removed - copy action moved to header */}
-          </div>
-        )/* Tab 2 end */}
+              {/* Modal Popup: Create User */}
+              {showCreateUserModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between p-4 border-b bg-orange-50/50">
+                      <div className="font-bold text-slate-900 flex items-center gap-2 text-sm sm:text-base">
+                        <UserRoundCog size={18} className="text-orange-600" />
+                        {currentUser.role === 'master' ? 'Tạo tài khoản mới' : currentUser.role === 'admin' ? 'Tạo Đại lý' : 'Tạo CTV'}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateUserModal(false)}
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className="p-4 sm:p-5">
+                      {userCrudError && (
+                        <div className="mb-4 flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200">
+                          <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                          <span>{userCrudError}</span>
+                        </div>
+                      )}
+                      <form onSubmit={handleCreateUser} className="space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">1. Họ và tên <span className="text-rose-500">*</span></label>
+                            <input
+                              type="text"
+                              value={newName}
+                              onChange={e => setNewName(e.target.value)}
+                              required
+                              placeholder="Ví dụ: Nguyễn Văn A"
+                              className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-xs font-semibold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">2. Số điện thoại <span className="text-rose-500">*</span></label>
+                            <input
+                              type="tel"
+                              required
+                              autoComplete="off"
+                              placeholder="09xxxxxxxx (10 chữ số)"
+                              maxLength={10}
+                              value={newPhone}
+                              onChange={e => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                const prevPhone = newPhone;
+                                setNewPhone(val);
+                                setUserCrudError('');
+                                if (!newUsername || newUsername === prevPhone) {
+                                  setNewUsername(val);
+                                }
+                              }}
+                              className={`w-full h-9 px-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 text-xs font-semibold transition-colors ${
+                                newPhone && (!newPhone.startsWith('0') || newPhone.length < 10)
+                                  ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                                  : newPhone && newPhone.startsWith('0') && newPhone.length === 10
+                                  ? 'border-emerald-500 focus:ring-emerald-500 bg-emerald-50/20'
+                                  : 'border-slate-300 focus:ring-orange-500'
+                              }`}
+                            />
+                            {newPhone && (!newPhone.startsWith('0') || newPhone.length < 10) && (
+                              <p className="text-[11px] text-rose-600 font-medium">
+                                {!newPhone.startsWith('0') ? 'Số điện thoại phải bắt đầu bằng số 0' : `Số điện thoại phải đủ 10 chữ số (${newPhone.length}/10)`}
+                              </p>
+                            )}
+                            {newPhone && newPhone.startsWith('0') && newPhone.length === 10 && (
+                              <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                                <Check size={12} /> Số điện thoại hợp lệ
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">3. Tên đăng nhập</label>
+                            <input
+                              type="text"
+                              value={newUsername}
+                              onChange={e => setNewUsername(e.target.value)}
+                              className="w-full h-9 px-3 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold select-none"
+                              placeholder="Mặc định: Số điện thoại"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">4. Mật khẩu (mặc định: sdt@)</label>
+                            <div className="relative">
+                              <input
+                                type={showCreatePassword ? "text" : "password"}
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                                placeholder="Mặc định: sdt@"
+                                className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-xs font-semibold pr-9 font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowCreatePassword(!showCreatePassword)}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5"
+                                tabIndex={-1}
+                              >
+                                {showCreatePassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">5. Vai trò <span className="text-rose-500">*</span></label>
+                            <select
+                              value={newRole}
+                              onChange={e => setNewRole(e.target.value as any)}
+                              className="w-full h-9 px-3 bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-xs font-semibold"
+                            >
+                              {currentUser.role === 'master' && (
+                                <>
+                                  <option value="admin">Quản lý</option>
+                                  <option value="client">Đại lý</option>
+                                  <option value="user">CTV</option>
+                                </>
+                              )}
+                              {currentUser.role === 'admin' && <option value="client">Đại lý</option>}
+                              {currentUser.role === 'client' && <option value="user">CTV</option>}
+                            </select>
+                          </div>
+
+                          {currentUser.role === 'master' && (newRole === 'client' || newRole === 'user') && (
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-slate-700">6. Trực thuộc Quản lý / Đại lý:</label>
+                              <select
+                                value={selectedParentId}
+                                onChange={e => setSelectedParentId(e.target.value)}
+                                className="w-full h-9 px-3 bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-xs font-semibold"
+                              >
+                                <option value="">Gốc Master (Không trực thuộc ai)</option>
+                                {newRole === 'client' && usersList.filter(u => u.role === 'admin').map(u => (
+                                  <option key={u.id} value={u.id}>[Quản lý] {u.name} (@{u.username})</option>
+                                ))}
+                                {newRole === 'user' && usersList.filter(u => u.role === 'client' || u.role === 'admin').map(u => (
+                                  <option key={u.id} value={u.id}>[{u.role === 'admin' ? 'Quản lý' : 'Đại lý'}] {u.name} (@{u.username})</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-3 border-t">
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateUserModal(false)}
+                            className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-100 transition-colors"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs shadow-sm transition-colors"
+                          >
+                            Tạo tài khoản
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Popup: Edit User */}
+              {editingUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between p-4 border-b bg-blue-50/50">
+                      <div className="font-bold text-slate-900 flex items-center gap-2 text-sm sm:text-base">
+                        <Edit3 size={18} className="text-blue-600" />
+                        Chỉnh sửa tài khoản: {editingUser.name} (@{editingUser.username})
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingUser(null)}
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className="p-4 sm:p-5">
+                      <form onSubmit={(e) => { e.preventDefault(); handleUpdateUser(); }} className="space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">1. Họ và tên <span className="text-rose-500">*</span></label>
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={e => setEditName(e.target.value)}
+                              required
+                              className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">2. Số điện thoại</label>
+                            <input
+                              type="tel"
+                              value={editPhone}
+                              onChange={e => setEditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                              placeholder="09xxxxxxxx"
+                              maxLength={10}
+                              className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">3. Tên đăng nhập</label>
+                            <input
+                              type="text"
+                              value={editingUser.username}
+                              readOnly
+                              tabIndex={-1}
+                              className="w-full h-9 px-3 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold select-none cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-semibold text-slate-700">4. Mật khẩu mới</label>
+                              {editingUser.password && (
+                                <span className="text-[10px] text-emerald-600 font-medium">● Đã lưu</span>
+                              )}
+                            </div>
+                            <div className="relative">
+                              <input
+                                type={showEditPassword ? "text" : "password"}
+                                value={editPassword}
+                                onChange={e => setEditPassword(e.target.value)}
+                                placeholder="Để trống nếu không đổi"
+                                className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold pr-9 font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowEditPassword(!showEditPassword)}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5"
+                                tabIndex={-1}
+                              >
+                                {showEditPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">5. Vai trò</label>
+                            <div className="h-9 px-3 flex items-center rounded-xl border bg-slate-100 text-xs font-bold text-slate-700">
+                              {editingUser.role === 'master' && 'Master'}
+                              {editingUser.role === 'admin' && 'Quản lý'}
+                              {editingUser.role === 'client' && 'Đại lý'}
+                              {editingUser.role === 'user' && 'CTV'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-3 border-t">
+                          <button
+                            type="button"
+                            onClick={() => setEditingUser(null)}
+                            className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-100 transition-colors"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition-colors"
+                          >
+                            Lưu thay đổi
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Tab 3: Commission Management */}
         {activeTab === 'commissions' && currentUser && (
