@@ -4,7 +4,7 @@ import {
   Calculator, Car, Calendar, DollarSign, Percent, ShieldCheck, Info, CheckCircle2, 
   AlertCircle, Copy, Check, Download, Loader2, Edit3, Save, RefreshCw, Users, Key,
   ChevronDown, ChevronRight, Settings, Plus, Trash2, LogOut, FileText, UserPlus, HelpCircle, LogIn, Upload,
-  Eye, EyeOff, Sparkles, ExternalLink
+  Eye, EyeOff, Sparkles, ExternalLink, Shield, Building, Briefcase, UserCheck, Search
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
 import * as XLSX from 'xlsx';
@@ -301,10 +301,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'calc' | 'users' | 'commissions' | 'rates' | 'companies' | 'logs'>(
     () => {
       const saved = localStorage.getItem('vcx_active_tab');
+      if (saved === 'companies') return 'rates';
       return saved === 'bank-referrals' ? 'commissions' : (saved as any || 'calc');
     }
   );
   const [commissionsSubTab, setCommissionsSubTab] = useState<'commission' | 'bank-referrals'>('commission');
+  const [ratesSubTab, setRatesSubTab] = useState<'rates' | 'companies'>('rates');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
 
   const [bankReferralsData, setBankReferralsData] = useState<BankReferral[]>([]);
   const [selectedBank, setSelectedBank] = useState('Không vay ngân hàng');
@@ -551,7 +556,7 @@ export default function App() {
       .then(res => res.json())
       .then(data => {
         setCompanies(data);
-        setSelectedCompanies(data.map((c: any) => c.id));
+        setSelectedCompanies(data.filter((c: any) => c.hasRates !== false).map((c: any) => c.id));
       });
 
     // Load Rates Data (Available to guest)
@@ -675,6 +680,14 @@ export default function App() {
     e.preventDefault();
     setUserCrudError('');
 
+    const targetUsername = newUsername.trim() || newPhone.trim();
+    if (!targetUsername) {
+      setUserCrudError('Vui lòng nhập tên đăng nhập hoặc số điện thoại');
+      return;
+    }
+
+    const targetPassword = newPassword.trim() || `${newPhone.trim() || targetUsername}@`;
+
     fetch('/api/users', {
       method: 'POST',
       headers: {
@@ -682,8 +695,8 @@ export default function App() {
         Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
-        username: newUsername,
-        password: newPassword,
+        username: targetUsername,
+        password: targetPassword,
         name: newName,
         role: newRole,
         phone: newPhone,
@@ -694,7 +707,12 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Cannot create user');
       
-      triggerNotification('success', `Tạo tài khoản ${newRole} thành công: ${newUsername}`);
+      const copyText = `Tài khoản: ${targetUsername} | Mật khẩu: ${targetPassword}`;
+      try {
+        navigator.clipboard.writeText(copyText);
+      } catch (err) {}
+
+      triggerNotification('success', `Đã tạo tài khoản @${targetUsername} (${newRole.toUpperCase()}) và sao chép thông tin vào bộ nhớ tạm!`);
       setNewUsername('');
       setNewPassword('');
       setNewName('');
@@ -1702,7 +1720,7 @@ export default function App() {
         .then(res => res.json())
         .then(data => {
           setCompanies(data);
-          setSelectedCompanies(data.map((c: any) => c.id));
+          setSelectedCompanies(data.filter((c: any) => c.hasRates !== false).map((c: any) => c.id));
         });
     })
     .catch(err => {
@@ -1728,7 +1746,7 @@ export default function App() {
         .then(res => res.json())
         .then(data => {
           setCompanies(data);
-          setSelectedCompanies(data.map((c: any) => c.id));
+          setSelectedCompanies(data.filter((c: any) => c.hasRates !== false).map((c: any) => c.id));
         });
     })
     .catch(err => {
@@ -2694,7 +2712,7 @@ export default function App() {
 
       const activeDeductible = customDeductibles[company.id] !== undefined ? customDeductibles[company.id] : deductible;
 
-      if (!rateValue || rateValue === 0) {
+      if (!rateValue || rateValue === 0 || company.hasRates === false) {
         return {
           company: { ...company, name: usedCompanyName },
           rate: 0,
@@ -2802,7 +2820,7 @@ export default function App() {
 
   // Display filter / sorting quotes
   const displayQuotes = useMemo(() => {
-    let result = quotes.filter(q => selectedCompanies.includes(q.company.id) && q.isAvailable);
+    let result = quotes.filter(q => selectedCompanies.includes(q.company.id) && q.isAvailable && q.rate > 0 && q.company.hasRates !== false);
 
     const getNumericPremium = (quote: any) => {
       const customVal = customDiscountedPremiums[quote.company.id];
@@ -3157,7 +3175,7 @@ export default function App() {
 
       {/* Main Navbar */}
       <header className="sticky top-0 bg-white border-b border-slate-200 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 lg:gap-3 shrink-0">
             <div className="p-1.5 lg:p-2 bg-blue-600 rounded-xl text-white shadow-md">
               <ShieldCheck size={20} className="lg:size-6" />
@@ -3166,76 +3184,69 @@ export default function App() {
               <h1 className="text-sm lg:text-base xl:text-lg font-black text-slate-800 tracking-tight leading-tight">Báo giá VCX</h1>
               <p className="text-[9px] lg:text-[10px] text-red-600 font-bold tracking-wider uppercase">Bản dùng thử có thể có sai sót</p>
             </div>
-
-            <a
-              href="https://dailybaohiemviendong.xyz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition-all shadow-xs ml-1 sm:ml-2 group shrink-0"
-              title="Mở ứng dụng Xuất thẻ VASS (TNDS)"
-            >
-              <ExternalLink size={13} className="text-amber-600 group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">Xuất thẻ VASS</span>
-              <span className="inline sm:hidden">VASS</span>
-            </a>
           </div>
 
           {/* Right aligned group: Desktop navigation & profile */}
-          <div className="hidden lg:flex items-center gap-4 ml-auto">
-            <nav className="flex flex-row-reverse items-center gap-0.5 xl:gap-1.5 whitespace-nowrap">
-              <button 
-                onClick={() => setActiveTab('calc')}
-                className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'calc' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-              >
-                Báo giá
-              </button>
+          <div className="hidden lg:flex items-center gap-3 xl:gap-4 ml-auto">
+            <nav className="flex items-center gap-1 xl:gap-2 whitespace-nowrap">
+              {currentUser && currentUser.role !== 'user' && (
+                <>
+                  <button 
+                    onClick={() => setActiveTab('logs')}
+                    className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Lịch sử hệ thống
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('users')}
+                    className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Quản lý Tài khoản
+                  </button>
+                </>
+              )}
 
               {currentUser && (
                 <button 
                   onClick={() => setActiveTab('commissions')}
-                  className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'commissions' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'commissions' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                 >
                   Quản lý Hoa hồng
                 </button>
               )}
 
-              {currentUser && currentUser.role !== 'user' && (
-                <>
-                  <button 
-                    onClick={() => setActiveTab('users')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    Quản lý Tài khoản
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab('logs')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    Lịch sử hệ thống
-                  </button>
-                </>
+              {currentUser && currentUser.role === 'master' && (
+                <button 
+                  onClick={() => setActiveTab('rates')}
+                  className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'rates' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Hãng & Biểu phí
+                </button>
               )}
 
-              {currentUser && currentUser.role === 'master' && (
-                <>
-                  <button 
-                    onClick={() => setActiveTab('rates')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'rates' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    Quản lý Tỉ lệ phí
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab('companies')}
-                    className={`px-1.5 py-1 lg:px-2 lg:py-1.5 xl:px-4 xl:py-2 rounded-lg lg:rounded-xl text-[11px] lg:text-xs xl:text-sm font-bold transition-all ${activeTab === 'companies' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    Quản lý Hãng BH
-                  </button>
-                </>
-              )}
+              <button 
+                onClick={() => setActiveTab('calc')}
+                className={`px-3 py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all ${activeTab === 'calc' ? 'bg-blue-600 text-white shadow-md shadow-blue-100 hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Báo giá
+              </button>
             </nav>
 
+            {/* Link to Xuat the VASS (Clean, modern pill button) */}
+            <a
+              href="https://dailybaohiemviendong.xyz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-900 border border-amber-300 rounded-full text-xs font-bold transition-all shadow-xs hover:shadow hover:scale-[1.02] active:scale-95 group shrink-0"
+              title="Mở ứng dụng Xuất thẻ VASS (TNDS)"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Xuất thẻ VASS</span>
+              <ExternalLink size={12} className="text-amber-700 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+
             {/* User profile / Login trigger */}
-            <div className="flex items-center gap-2 lg:gap-4 shrink-0 border-l border-slate-200 pl-4">
+            <div className="flex items-center gap-2 lg:gap-3 shrink-0 border-l border-slate-200 pl-3">
               {currentUser ? (
                 <>
                   <div className="text-right hidden md:block">
@@ -3304,51 +3315,52 @@ export default function App() {
 
         {/* Mobile Navigation bar */}
         {currentUser && (
-          <div className="lg:hidden flex flex-row-reverse border-t border-slate-200 overflow-x-auto bg-white px-2 py-1 justify-start">
-            <button 
-              onClick={() => setActiveTab('calc')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'calc' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
-            >
-              Báo giá
-            </button>
-            <button 
-              onClick={() => setActiveTab('commissions')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'commissions' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
-            >
-              Hoa hồng
-            </button>
+          <div className="lg:hidden flex border-t border-slate-200 overflow-x-auto bg-white px-2 py-1 items-center gap-1.5 scrollbar-none">
             {currentUser.role !== 'user' && (
               <>
                 <button 
-                  onClick={() => setActiveTab('users')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                >
-                  Tài khoản
-                </button>
-                <button 
                   onClick={() => setActiveTab('logs')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   Lịch sử
                 </button>
+                <button 
+                  onClick={() => setActiveTab('users')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  Tài khoản
+                </button>
               </>
             )}
+            <button 
+              onClick={() => setActiveTab('commissions')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'commissions' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+              Hoa hồng
+            </button>
             {currentUser.role === 'master' && (
-              <>
-                <button 
-                  onClick={() => setActiveTab('rates')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'rates' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                >
-                  Tỉ lệ phí
-                </button>
-                <button 
-                  onClick={() => setActiveTab('companies')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'companies' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                >
-                  Hãng bảo hiểm
-                </button>
-              </>
+              <button 
+                onClick={() => setActiveTab('rates')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'rates' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                Hãng & Biểu phí
+              </button>
             )}
+            <button 
+              onClick={() => setActiveTab('calc')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all ${activeTab === 'calc' ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+              Báo giá
+            </button>
+            <a
+              href="https://dailybaohiemviendong.xyz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 shrink-0 flex items-center gap-1"
+            >
+              <span>VASS</span>
+              <ExternalLink size={10} />
+            </a>
           </div>
         )}
       </header>
@@ -3768,10 +3780,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Insurer Filters */}
+              {/* Insurer Filters - Only show companies with valid rates for the selected vehicle/age */}
               <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3 flex-wrap">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Lọc hãng:</span>
-                {orderedCompanies.map(c => {
+                {orderedCompanies
+                  .filter(c => c.hasRates !== false && quotes.some(q => q.company.id === c.id && q.isAvailable && q.rate > 0))
+                  .map(c => {
                   const getCompanyAbbreviation = (id: string, fullName: string): string => {
                     const mapping: Record<string, string> = {
                       'BM': 'BMI',
@@ -3993,7 +4007,7 @@ export default function App() {
                   })}
                   </div>
                 ) : viewMode === 'table' ? (() => {
-                  const totalColumns = 2 + (showBasePremium ? 1 : 0) + ((currentUser && showDiscountedPremium) ? 1 : 0) + (currentUser && showCommission ? (selectedBank !== 'Không vay ngân hàng' ? 3 : 1) : 0);
+                  const totalColumns = 2 + (showRate ? 1 : 0) + (showBasePremium ? 1 : 0) + ((currentUser && showDiscountedPremium) ? 1 : 0) + (currentUser && showCommission ? (selectedBank !== 'Không vay ngân hàng' ? 3 : 1) : 0);
                   return (
                     <div className={`${isGenerating ? 'overflow-visible' : 'overflow-x-auto'} rounded-2xl border border-slate-200 bg-white shadow-sm p-3.5`}>
                       {/* Integrated Header inside card */}
@@ -4026,6 +4040,7 @@ export default function App() {
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
                             <th className="py-2 px-3 whitespace-nowrap">Hãng Bảo Hiểm</th>
+                            {showRate && <th className="py-2 px-3 text-right whitespace-nowrap">Tỉ lệ phí</th>}
                             {showBasePremium && <th className="py-2 px-3 text-right whitespace-nowrap">Giá bảo hiểm</th>}
                             {currentUser && showCommission && (
                               <>
@@ -4057,6 +4072,12 @@ export default function App() {
                                   </div>
                                 </td>
                                 
+                                {showRate && (
+                                  <td className="py-2 px-3 text-right whitespace-nowrap font-mono tabular-nums font-bold text-slate-800 text-sm">
+                                    {quote.displayRate}%
+                                  </td>
+                                )}
+
                                 {showBasePremium && (
                                   <td className="py-2 px-3 text-right whitespace-nowrap">
                                     {currentUser && isEditMode ? (
@@ -4508,54 +4529,74 @@ export default function App() {
 
                     <form onSubmit={handleCreateUser} className="space-y-3.5">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tên đăng nhập</label>
-                        <input 
-                          type="text" 
-                          value={newUsername}
-                          onChange={e => setNewUsername(e.target.value)}
-                          required
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          placeholder="Tên tài khoản..."
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mật khẩu</label>
-                        <input 
-                          type="password" 
-                          value={newPassword}
-                          onChange={e => setNewPassword(e.target.value)}
-                          required
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          placeholder="Mật khẩu tài khoản..."
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Họ và tên</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">1. Họ và tên</label>
                         <input 
                           type="text" 
                           value={newName}
                           onChange={e => setNewName(e.target.value)}
                           required
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          placeholder="Họ và tên..."
+                          placeholder="Ví dụ: Nguyễn Văn A..."
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Số điện thoại</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">2. Số điện thoại</label>
+                        <input 
+                          type="tel" 
+                          value={newPhone}
+                          maxLength={10}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            const prevPhone = newPhone;
+                            setNewPhone(val);
+                            if (!newUsername || newUsername === prevPhone) {
+                              setNewUsername(val);
+                            }
+                          }}
+                          required
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                          placeholder="09xxxxxxxx (10 chữ số)"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">3. Tên đăng nhập</label>
                         <input 
                           type="text" 
-                          value={newPhone}
-                          onChange={e => setNewPhone(e.target.value)}
+                          value={newUsername}
+                          onChange={e => setNewUsername(e.target.value)}
+                          required
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-                          placeholder="Số điện thoại..."
+                          placeholder="Tên tài khoản (mặc định SĐT)..."
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vai trò</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">4. Mật khẩu</label>
+                        <div className="relative">
+                          <input 
+                            type={showCreatePassword ? "text" : "password"} 
+                            value={newPassword}
+                            onChange={e => setNewPassword(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold pr-9 font-mono"
+                            placeholder="Mặc định: sdt@"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCreatePassword(!showCreatePassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5"
+                            tabIndex={-1}
+                            title={showCreatePassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                          >
+                            {showCreatePassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">Để trống sẽ tự động lấy: {newPhone ? `${newPhone}@` : 'sdt@'}</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">5. Vai trò</label>
                         <select 
                           value={newRole}
                           onChange={e => setNewRole(e.target.value as any)}
@@ -4575,7 +4616,7 @@ export default function App() {
 
                       {currentUser.role === 'master' && (newRole === 'client' || newRole === 'user') && (
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tài khoản quản lý trực thuộc (Cha)</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">6. Trực thuộc Quản lý / Đại lý</label>
                           <select 
                             value={selectedParentId}
                             onChange={e => setSelectedParentId(e.target.value)}
@@ -4732,29 +4773,57 @@ export default function App() {
 
                 {/* Subordinate account table list on the right */}
                 <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col lg:h-[780px]">
-                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Danh sách tài khoản
-                    </h3>
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">{usersList.length} tài khoản</span>
-                  </div>
+                  {(() => {
+                    const filteredUsers = usersList.filter(u => {
+                      if (!userSearchTerm.trim()) return true;
+                      const term = userSearchTerm.toLowerCase();
+                      return (
+                        u.name?.toLowerCase().includes(term) ||
+                        u.username?.toLowerCase().includes(term) ||
+                        (u.phone && u.phone.includes(term))
+                      );
+                    });
 
-                  <div className="overflow-x-auto overflow-y-auto flex-1">
-                    <table className="w-full text-left border-collapse table-auto">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-10">
-                          <th className="px-3 py-3 whitespace-nowrap">Tài khoản</th>
-                          <th className="px-3 py-3 whitespace-nowrap">Họ tên</th>
-                          <th className="px-3 py-3 whitespace-nowrap">SĐT</th>
-                          {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Mật khẩu</th>}
-                          <th className="px-3 py-3 whitespace-nowrap">Vai trò</th>
-                          {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Trực thuộc</th>}
-                          <th className="px-3 py-3 whitespace-nowrap text-right">Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
-                        {usersList.length > 0 ? (
-                          usersList.map(u => (
+                    return (
+                      <>
+                        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 shrink-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              Danh sách tài khoản
+                            </h3>
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                              {filteredUsers.length} / {usersList.length}
+                            </span>
+                          </div>
+
+                          <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                              type="text"
+                              value={userSearchTerm}
+                              onChange={(e) => setUserSearchTerm(e.target.value)}
+                              placeholder="Tìm tên, SĐT, tài khoản..."
+                              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-56 shadow-2xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto overflow-y-auto flex-1">
+                          <table className="w-full text-left border-collapse table-auto">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-10">
+                                <th className="px-3 py-3 whitespace-nowrap">Tài khoản</th>
+                                <th className="px-3 py-3 whitespace-nowrap">Họ tên</th>
+                                <th className="px-3 py-3 whitespace-nowrap">SĐT</th>
+                                <th className="px-3 py-3 whitespace-nowrap">Vai trò</th>
+                                {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Trực thuộc</th>}
+                                {currentUser.role === 'master' && <th className="px-3 py-3 whitespace-nowrap">Mật khẩu</th>}
+                                <th className="px-3 py-3 whitespace-nowrap text-right">Thao tác</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                              {filteredUsers.length > 0 ? (
+                                filteredUsers.map(u => (
                             <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
                               <td className="px-3 py-2.5 whitespace-nowrap font-bold text-slate-800">@{u.username}</td>
                               <td className="px-3 py-2.5 whitespace-nowrap">
@@ -4782,10 +4851,43 @@ export default function App() {
                                   u.phone || '-'
                                 )}
                               </td>
+                              <td className="px-3 py-2.5 whitespace-nowrap">
+                                {u.role === 'master' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
+                                    <Shield size={12} /> Master
+                                  </span>
+                                )}
+                                {u.role === 'admin' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                    <Building size={12} /> Quản lý
+                                  </span>
+                                )}
+                                {u.role === 'client' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <Briefcase size={12} /> Đại lý
+                                  </span>
+                                )}
+                                {u.role === 'user' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                    <UserCheck size={12} /> CTV
+                                  </span>
+                                )}
+                              </td>
+                              {currentUser.role === 'master' && (
+                                <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-slate-600">
+                                  {u.parentUsername ? (
+                                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[11px]">
+                                      @{u.parentUsername}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 font-semibold italic text-[11px]">MASTER</span>
+                                  )}
+                                </td>
+                              )}
                               {currentUser.role === 'master' && (
                                 <td className="px-3 py-2.5 whitespace-nowrap">
                                   <div className="flex items-center gap-1.5 bg-blue-50/20 px-2 py-1 rounded-lg border border-slate-100 font-mono font-bold text-blue-600 w-fit">
-                                    <span className="select-all">{showPasswords[u.id] ? u.password : '••••••••'}</span>
+                                    <span className="select-all text-xs">{showPasswords[u.id] ? u.password : '••••••••'}</span>
                                     <button
                                       type="button"
                                       onClick={() => setShowPasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
@@ -4795,27 +4897,6 @@ export default function App() {
                                       {showPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
                                     </button>
                                   </div>
-                                </td>
-                              )}
-                              <td className="px-3 py-2.5 whitespace-nowrap">
-                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  u.role === 'master' ? 'bg-purple-100 text-purple-700' :
-                                  u.role === 'admin' ? 'bg-blue-100 text-blue-700' :
-                                  u.role === 'client' ? 'bg-teal-100 text-teal-700' :
-                                  'bg-amber-100 text-amber-700'
-                                }`}>
-                                  {u.role === 'master' ? 'Master' : u.role === 'admin' ? 'Quản lý' : u.role === 'client' ? 'Đại lý' : 'CTV'}
-                                </span>
-                              </td>
-                              {currentUser.role === 'master' && (
-                                <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-slate-600">
-                                  {u.parentUsername ? (
-                                    <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-bold">
-                                      @{u.parentUsername}
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-400 font-semibold italic">MASTER</span>
-                                  )}
                                 </td>
                               )}
                               <td className="px-3 py-2.5 whitespace-nowrap text-right">
@@ -4842,7 +4923,22 @@ export default function App() {
                                     </button>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center justify-end gap-2">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {/* Quick copy credentials */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const text = `Tài khoản: ${u.username} | Mật khẩu: ${u.password || ''}`;
+                                        navigator.clipboard.writeText(text);
+                                        setCopiedUserId(u.id);
+                                        setTimeout(() => setCopiedUserId(null), 1500);
+                                        triggerNotification('success', `Đã sao chép tài khoản @${u.username}`);
+                                      }}
+                                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                      title="Sao chép thông tin tài khoản"
+                                    >
+                                      {copiedUserId === u.id ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                                    </button>
                                     <button 
                                       onClick={() => {
                                         setEditingUserId(u.id);
@@ -4858,7 +4954,8 @@ export default function App() {
                                     {/* Subordinate delete button: Master only deletes admin, admin deletes direct client, client deletes direct user */}
                                     {((currentUser.role === 'master' && u.role === 'admin') || 
                                       (currentUser.role === 'admin' && u.role === 'client') || 
-                                      (currentUser.role === 'client' && u.role === 'user')) && (
+                                      (currentUser.role === 'client' && u.role === 'user') ||
+                                      (currentUser.role === 'master' && u.role !== 'master')) && (
                                       <button 
                                         onClick={() => handleDeleteUser(u.id, u.username)}
                                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -4874,15 +4971,20 @@ export default function App() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={currentUser.role === 'master' ? 7 : 5} className="px-3 py-8 text-center text-slate-400 font-bold">Chưa có tài khoản cấp dưới trực thuộc</td>
+                            <td colSpan={currentUser.role === 'master' ? 7 : 5} className="px-3 py-8 text-center text-slate-400 font-bold">
+                              {userSearchTerm ? 'Không tìm thấy tài khoản phù hợp với từ khoá' : 'Chưa có tài khoản cấp dưới trực thuộc'}
+                            </td>
                           </tr>
                         )}
                       </tbody>
                     </table>
                   </div>
-                </div>
-              </div>
-            )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
             {/* Quick text credentials list removed - copy action moved to header */}
           </div>
@@ -5370,13 +5472,45 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 4: Rates Management (MASTER only) */}
+        {/* Tab 4: Rates & Companies Management (MASTER only) */}
         {activeTab === 'rates' && currentUser && currentUser.role === 'master' && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-              <Calculator size={22} className="text-blue-600" />
-              Quản lý Tỉ lệ phí
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                <Calculator size={22} className="text-blue-600" />
+                Hãng bảo hiểm & Biểu phí
+              </h2>
+
+              {/* Sub-tab segmented control */}
+              <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setRatesSubTab('rates')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    ratesSubTab === 'rates'
+                      ? 'bg-white text-blue-600 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Calculator size={14} />
+                  Biểu phí bảo hiểm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRatesSubTab('companies')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    ratesSubTab === 'companies'
+                      ? 'bg-white text-blue-600 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Settings size={14} />
+                  Quản lý Hãng & Thứ tự
+                </button>
+              </div>
+            </div>
+
+            {ratesSubTab === 'rates' ? (
 
             <div className="space-y-6">
               {/* Excel Import/Export Panel */}
@@ -5672,16 +5806,7 @@ export default function App() {
                   )}
                 </div>
               </div>
-            </div>
-          )}
-
-        {/* Tab 5: Companies Management (MASTER only) */}
-        {activeTab === 'companies' && currentUser && currentUser.role === 'master' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-              <Settings size={22} className="text-blue-600" />
-              Quản lý hãng bảo hiểm
-            </h2>
+            ) : (
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
               
@@ -5897,6 +6022,7 @@ export default function App() {
               </div>
 
             </div>
+            )}
           </div>
         )}
 
