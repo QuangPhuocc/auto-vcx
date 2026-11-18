@@ -4,7 +4,7 @@ import {
   Calculator, Car, Calendar, DollarSign, Percent, ShieldCheck, Info, CheckCircle2, 
   AlertCircle, Copy, Check, Download, Loader2, Edit3, Save, RefreshCw, Users, Key,
   ChevronDown, ChevronRight, Settings, Plus, Trash2, LogOut, FileText, UserPlus, HelpCircle, LogIn, Upload,
-  Eye, EyeOff, Sparkles
+  Eye, EyeOff, Sparkles, ExternalLink
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
 import * as XLSX from 'xlsx';
@@ -386,6 +386,7 @@ export default function App() {
   const [usersList, setUsersList] = useState<User[]>([]);
   const [userTree, setUserTree] = useState<any[]>([]);
   const [showTreeDiagram, setShowTreeDiagram] = useState(false);
+  const [showBatchExcel, setShowBatchExcel] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newName, setNewName] = useState('');
@@ -3165,6 +3166,18 @@ export default function App() {
               <h1 className="text-sm lg:text-base xl:text-lg font-black text-slate-800 tracking-tight leading-tight">Báo giá VCX</h1>
               <p className="text-[9px] lg:text-[10px] text-red-600 font-bold tracking-wider uppercase">Bản dùng thử có thể có sai sót</p>
             </div>
+
+            <a
+              href="https://dailybaohiemviendong.xyz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition-all shadow-xs ml-1 sm:ml-2 group shrink-0"
+              title="Mở ứng dụng Xuất thẻ VASS (TNDS)"
+            >
+              <ExternalLink size={13} className="text-amber-600 group-hover:scale-110 transition-transform" />
+              <span className="hidden sm:inline">Xuất thẻ VASS</span>
+              <span className="inline sm:hidden">VASS</span>
+            </a>
           </div>
 
           {/* Right aligned group: Desktop navigation & profile */}
@@ -3633,12 +3646,6 @@ export default function App() {
                       className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                     >
                       Bảng
-                    </button>
-                    <button
-                      onClick={() => setViewMode('grid')}
-                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                    >
-                      Thẻ
                     </button>
                     <button
                       onClick={() => setViewMode('agent')}
@@ -4602,15 +4609,40 @@ export default function App() {
                     </form>
                   </div>
 
-                  {/* Excel Batch Creation Card inside Left Column */}
-                  <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                    <div className="flex flex-col gap-3 pb-2 border-b border-slate-100">
-                      <div>
-                        <h3 className="text-xs md:text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                          <FileText size={16} className="text-blue-600" />
-                          Tạo tài khoản bằng Excel
-                        </h3>
-                        <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Tải file mẫu về, nhập danh sách tài khoản rồi upload lên để tạo hàng loạt.</p>
+                  {/* Excel Batch Creation Section inside Left Column */}
+                  {!showBatchExcel ? (
+                    <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <FileText size={16} className="text-blue-600 shrink-0" />
+                        <span className="text-xs font-bold text-slate-700">Tạo tài khoản bằng Excel</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowBatchExcel(true)}
+                        className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs border border-blue-200 transition-all flex items-center gap-1 shrink-0"
+                      >
+                        <Upload size={12} />
+                        Mở tệp
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div>
+                          <h3 className="text-xs md:text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <FileText size={16} className="text-blue-600" />
+                            Tạo tài khoản bằng Excel
+                          </h3>
+                          <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Tải file mẫu về, nhập danh sách rồi upload.</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowBatchExcel(false)}
+                          className="text-slate-400 hover:text-slate-600 text-xs font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-all shrink-0"
+                        >
+                          Thu gọn
+                        </button>
                       </div>
 
                       <button
@@ -4621,81 +4653,81 @@ export default function App() {
                         <Download size={12} />
                         Tải Excel mẫu
                       </button>
-                    </div>
 
-                    <div className="grid grid-cols-1 gap-4 items-start">
-                      {/* File Upload Selector */}
-                      <div className="space-y-2">
-                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide">Chọn File Excel đã chỉnh sửa:</label>
-                        <div 
-                          onDragEnter={handleDrag}
-                          onDragOver={handleDrag}
-                          onDragLeave={handleDrag}
-                          onDrop={handleDrop}
-                          onClick={() => fileInputRef.current?.click()}
-                          className={`w-full py-5 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
-                        >
-                          <input 
-                            type="file" 
-                            ref={fileInputRef}
-                            accept=".xlsx, .xls"
-                            onChange={handleExcelUpload}
-                            className="hidden"
-                          />
-                          <Upload className="text-slate-400" size={20} />
-                          <div className="text-xs font-bold text-slate-700 text-center">
-                            Kéo thả file Excel vào đây hoặc click để chọn tệp
-                          </div>
-                          <div className="text-[10px] font-semibold text-slate-400 uppercase">
-                            Hỗ trợ định dạng .xlsx, .xls
+                      <div className="grid grid-cols-1 gap-4 items-start">
+                        {/* File Upload Selector */}
+                        <div className="space-y-2">
+                          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide">Chọn File Excel đã chỉnh sửa:</label>
+                          <div 
+                            onDragEnter={handleDrag}
+                            onDragOver={handleDrag}
+                            onDragLeave={handleDrag}
+                            onDrop={handleDrop}
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`w-full py-5 px-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 bg-slate-50/50 hover:bg-slate-50 ${isDragActive ? 'border-blue-600 bg-blue-50/30' : 'border-slate-300 hover:border-slate-400'}`}
+                          >
+                            <input 
+                              type="file" 
+                              ref={fileInputRef}
+                              accept=".xlsx, .xls"
+                              onChange={handleExcelUpload}
+                              className="hidden"
+                            />
+                            <Upload className="text-slate-400" size={20} />
+                            <div className="text-xs font-bold text-slate-700 text-center">
+                              Kéo thả file Excel vào đây hoặc click để chọn tệp
+                            </div>
+                            <div className="text-[10px] font-semibold text-slate-400 uppercase">
+                              Hỗ trợ định dạng .xlsx, .xls
+                            </div>
                           </div>
                         </div>
+
+                        {/* Parsed Rows Preview & Action */}
+                        {parsedExcelRows.length > 0 && (
+                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in duration-200">
+                            <div className="flex flex-col gap-2">
+                              <span className="text-xs font-bold text-slate-700">Đã đọc được {parsedExcelRows.length} tài khoản</span>
+                              <button
+                                onClick={handleConfirmBatchCreate}
+                                disabled={isUploading}
+                                type="button"
+                                className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                              >
+                                {isUploading ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
+                                Xác nhận tạo tài khoản
+                              </button>
+                            </div>
+
+                            <div className="max-h-[120px] overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 space-y-1">
+                              {parsedExcelRows.slice(0, 10).map((row, index) => (
+                                <div key={index} className="text-[10px] font-semibold text-slate-600 flex justify-between border-b border-slate-100 pb-0.5">
+                                  <span>@{row.username} ({row.name})</span>
+                                  <span className="text-blue-600 uppercase font-bold">{row.role} → @{row.parentUsername || 'master'}</span>
+                                </div>
+                              ))}
+                              {parsedExcelRows.length > 10 && (
+                                <div className="text-[9px] text-slate-400 text-center font-bold italic pt-1">... và {parsedExcelRows.length - 10} tài khoản khác</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Parsed Rows Preview & Action */}
-                      {parsedExcelRows.length > 0 && (
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in duration-200">
-                          <div className="flex flex-col gap-2">
-                            <span className="text-xs font-bold text-slate-700">Đã đọc được {parsedExcelRows.length} tài khoản</span>
-                            <button
-                              onClick={handleConfirmBatchCreate}
-                              disabled={isUploading}
-                              type="button"
-                              className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                            >
-                              {isUploading ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
-                              Xác nhận tạo tài khoản
-                            </button>
-                          </div>
-
-                          <div className="max-h-[120px] overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 space-y-1">
-                            {parsedExcelRows.slice(0, 10).map((row, index) => (
-                              <div key={index} className="text-[10px] font-semibold text-slate-600 flex justify-between border-b border-slate-100 pb-0.5">
-                                <span>@{row.username} ({row.name})</span>
-                                <span className="text-blue-600 uppercase font-bold">{row.role} → @{row.parentUsername || 'master'}</span>
-                              </div>
-                            ))}
-                            {parsedExcelRows.length > 10 && (
-                              <div className="text-[9px] text-slate-400 text-center font-bold italic pt-1">... và {parsedExcelRows.length - 10} tài khoản khác</div>
-                            )}
-                          </div>
+                      {/* Batch Upload Errors Display */}
+                      {batchUploadErrors.length > 0 && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 animate-in fade-in duration-200">
+                          <h4 className="text-red-800 font-bold text-xs flex items-center gap-1">
+                            <AlertCircle size={14} />
+                            Có lỗi xảy ra khi tạo tài khoản hàng loạt:
+                          </h4>
+                          <ul className="list-disc pl-4 text-xs font-semibold text-red-700 space-y-1 max-h-[150px] overflow-y-auto">
+                            {batchUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
+                          </ul>
                         </div>
                       )}
                     </div>
-
-                    {/* Batch Upload Errors Display */}
-                    {batchUploadErrors.length > 0 && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 animate-in fade-in duration-200">
-                        <h4 className="text-red-800 font-bold text-xs flex items-center gap-1">
-                          <AlertCircle size={14} />
-                          Có lỗi xảy ra khi tạo tài khoản hàng loạt:
-                        </h4>
-                        <ul className="list-disc pl-4 text-xs font-semibold text-red-700 space-y-1 max-h-[150px] overflow-y-auto">
-                          {batchUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Subordinate account table list on the right */}
