@@ -3232,19 +3232,6 @@ export default function App() {
               </button>
             </nav>
 
-            {/* Link to Xuat the VASS (Clean, modern pill button) */}
-            <a
-              href="https://dailybaohiemviendong.xyz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-900 border border-amber-300 rounded-full text-xs font-bold transition-all shadow-xs hover:shadow hover:scale-[1.02] active:scale-95 group shrink-0"
-              title="Mở ứng dụng Xuất thẻ VASS (TNDS)"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Xuất thẻ VASS</span>
-              <ExternalLink size={12} className="text-amber-700 group-hover:translate-x-0.5 transition-transform" />
-            </a>
-
             {/* User profile / Login trigger */}
             <div className="flex items-center gap-2 lg:gap-3 shrink-0 border-l border-slate-200 pl-3">
               {currentUser ? (
@@ -3352,15 +3339,6 @@ export default function App() {
             >
               Báo giá
             </button>
-            <a
-              href="https://dailybaohiemviendong.xyz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 shrink-0 flex items-center gap-1"
-            >
-              <span>VASS</span>
-              <ExternalLink size={10} />
-            </a>
           </div>
         )}
       </header>
