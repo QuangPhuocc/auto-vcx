@@ -1,0 +1,136 @@
+export const EV_MODELS = [
+  { id: 'gas', name: 'Xe xăng' },
+  { id: 'VF3', name: 'VF3' },
+  { id: 'Minio Green', name: 'Minio Green' },
+  { id: 'Herio Green', name: 'Herio Green' },
+  { id: 'Nerio Green', name: 'Nerio Green' },
+  { id: 'VF5', name: 'VF5' },
+  { id: 'VF6', name: 'VF6' },
+  { id: 'VF7', name: 'VF7' },
+  { id: 'VF8', name: 'VF8' },
+  { id: 'VF9', name: 'VF9' },
+  { id: 'VFe34', name: 'VFe34' },
+  { id: 'MPV7', name: 'MPV7' },
+  { id: 'Limo Green', name: 'Limo Green' },
+  { id: 'other', name: 'Xe điện khác' }
+];
+
+export const BANK_OPTIONS = [
+  'Không vay ngân hàng',
+  'CÔNG TY TÀI CHÍNH TOYOTA TFSVN',
+  'TP BANK - VAY MỚI',
+  'TP BANK - TÁI TỤC',
+  'VP BANK - CÁ NHÂN',
+  'VP BANK - DOANH NGHIỆP',
+  'PVCOMBANK - CÁ NHÂN',
+  'PVCOMBANK - DOANH NGHIỆP',
+  'OCB KHỐI CÁ NHÂN',
+  'OCB KHỐI DN VỪA & NHỎ',
+  'OCB KHỐI DN LỚN',
+  'TECHCOMBANK - NĂM ĐẦU',
+  'TECHCOMBANK - NĂM THỨ 2',
+  'SEABANK CÁ NHÂN',
+  'SEABANK DOANH NGHIỆP',
+  'ABBANK',
+  'NCB - NH QUỐC DÂN',
+  'VIETBANK',
+  'LPBANK',
+  'ACB - Á CHÂU',
+  'SHB',
+  'EIB - EXIMBANK',
+  'BẮC Á BANK',
+  'NAM Á BANK',
+  'KIENLONG BANK',
+  'VIETCOMBANK',
+  'HD BANK',
+  'SHINHAN',
+  'BẢN VIỆT',
+  'SACOMBANK',
+  'PG BANK',
+  'WOORI',
+  'PUBLIC BANK',
+  'MARITIMEBANK',
+  'VIB',
+  'BẢO VIỆT',
+  'MSB - NGÂN HÀNG HÀNG HẢI'
+];
+
+export const COLOR_PRESETS = [
+  { name: 'Xanh dương đậm (Royal Blue)', hex: '#1e40af' },
+  { name: 'Xanh dương (Blue)', hex: '#2563eb' },
+  { name: 'Xanh da trời (Sky Blue)', hex: '#0ea5e9' },
+  { name: 'Lục lam (Teal)', hex: '#0f766e' },
+  { name: 'Lục bảo (Emerald)', hex: '#047857' },
+  { name: 'Xanh lá (Green)', hex: '#16a34a' },
+  { name: 'Xanh neon (Lime)', hex: '#65a30d' },
+  { name: 'Xanh lục nhạt (Mint)', hex: '#10b981' },
+  { name: 'Đỏ đậm (Crimson)', hex: '#991b1b' },
+  { name: 'Đỏ tươi (Red)', hex: '#dc2626' },
+  { name: 'Đỏ cam (Tomato)', hex: '#f97316' },
+  { name: 'Hồng đậm (Deep Pink)', hex: '#be185d' },
+  { name: 'Hồng sen (Rose)', hex: '#e11d48' },
+  { name: 'Tím đậm (Grape)', hex: '#6b21a8' },
+  { name: 'Tím (Purple)', hex: '#9333ea' },
+  { name: 'Chàm (blue)', hex: '#4f46e5' },
+  { name: 'Vàng cam (Amber)', hex: '#d97706' },
+  { name: 'Vàng tươi (Yellow)', hex: '#eab308' },
+  { name: 'Nâu đất (Brown)', hex: '#78350f' },
+  { name: 'Đồng (Bronze)', hex: '#b45309' },
+  { name: 'Xám đậm (Slate)', hex: '#334155' },
+  { name: 'Xám xanh (Cool Gray)', hex: '#4b5563' },
+  { name: 'Đen xám (Charcoal)', hex: '#1f2937' },
+  { name: 'Hồng san hô (Coral)', hex: '#f43f5e' }
+];
+
+export const VEHICLE_OPTIONS = [
+  // A. XE CHỞ NGƯỜI
+  { id: 'personal_under_9', name: 'Xe chở người không kinh doanh dưới 9 chỗ', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'personal_over_9', name: 'Xe chở người không kinh doanh từ 9 chỗ trở lên', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'training', name: 'Xe tập lái', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'bus', name: 'Xe bus', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'internal', name: 'Xe hoạt động nội bộ cảng / KCN / sân bay', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'grab', name: 'Xe kinh doanh công nghệ (Grab, Be, FastGo, Xanh SM...)', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'taxi', name: 'Taxi truyền thống', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'self_drive', name: 'Xe cho thuê tự lái', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'commercial_under_9', name: 'Xe kinh doanh chở người dưới 9 chỗ, xe hợp đồng (không phải Grab, Taxi)', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'commercial_over_9', name: 'Xe kinh doanh chở người từ 9 chỗ trở lên', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'commercial_interprovincial', name: 'Xe kinh doanh vận tải hành khách liên tỉnh', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'demo_car', name: 'Xe Demo / Test Drive', group: 'A. XE CHỞ NGƯỜI' },
+  { id: 'money_car', name: 'Xe chở tiền', group: 'A. XE CHỞ NGƯỜI' },
+
+  // B. XE CHỞ HÀNG
+  { id: 'truck_non_commercial_under_10', name: 'Xe tải không kinh doanh ≤ 10 tấn', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_non_commercial_over_10', name: 'Xe tải không kinh doanh > 10 tấn', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_commercial_under_10', name: 'Xe tải kinh doanh ≤ 10 tấn', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_commercial_over_10', name: 'Xe tải kinh doanh > 10 tấn', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_refrigerated_under_3_5', name: 'Xe đông lạnh / bảo ôn ≤ 3.5 tấn', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_refrigerated_over_3_5', name: 'Xe đông lạnh / bảo ôn > 3.5 tấn', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_mining', name: 'Xe hoạt động vùng khai thác khoáng sản', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_fuel', name: 'Xe chở xăng dầu, khí hóa lỏng, nhiên liệu', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_oversized', name: 'Xe chở hàng siêu trường siêu trọng', group: 'B. XE CHỞ HÀNG' },
+  { id: 'truck_other', name: 'Xe chở hàng còn lại', group: 'B. XE CHỞ HÀNG' },
+
+  // C. XE CHUYÊN DÙNG
+  { id: 'specialized_ambulance', name: 'Xe cứu thương', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_fire', name: 'Xe cứu hỏa', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_ladder', name: 'Xe thang', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_sanitation', name: 'Xe vệ sinh môi trường', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_sweeper', name: 'Xe quét đường', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_concrete', name: 'Xe bơm bê tông', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_drill', name: 'Xe khoan', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_tanker', name: 'Xe téc chở chất lỏng', group: 'C. XE CHUYÊN DÙNG' },
+  { id: 'specialized_other', name: 'Xe chuyên dùng khác', group: 'C. XE CHUYÊN DÙNG' },
+
+  // D. ĐẦU KÉO - RƠ MOÓC
+  { id: 'tractor', name: 'Xe đầu kéo', group: 'D. ĐẦU KÉO - RƠ MOÓC' },
+  { id: 'trailer_flatbed', name: 'Rơ moóc thường / rơ moóc sàn', group: 'D. ĐẦU KÉO - RƠ MOÓC' },
+  { id: 'trailer_tipper', name: 'Rơ moóc ben / tự đổ', group: 'D. ĐẦU KÉO - RƠ MOÓC' },
+  { id: 'trailer_specialized', name: 'Rơ moóc gắn thiết bị chuyên dùng', group: 'D. ĐẦU KÉO - RƠ MOÓC' },
+
+  // E. PICKUP - VAN
+  { id: 'pickup', name: 'Xe bán tải Pickup', group: 'E. PICKUP - VAN' },
+  { id: 'van_minivan', name: 'Xe Van', group: 'E. PICKUP - VAN' },
+  { id: 'pickup_other', name: 'Xe vừa chở người vừa chở hàng khác', group: 'E. PICKUP - VAN' }
+];
+
+export const COMPANY_ORDER = ['BM', 'PJI', 'PJI_STAR', 'TAS', 'DBV', 'BL', 'PVI', 'MIC', 'PTI', 'BV', 'LB', 'VS'];
