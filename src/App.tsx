@@ -206,34 +206,6 @@ export default function App() {
   const showSeatCount = ['personal', 'grab', 'taxi', 'commercial_passenger'].includes(dbCarType);
   const showTonnage = ['truck_non_commercial', 'truck_commercial', 'truck_refrigerated', 'trailer', 'tractor'].includes(dbCarType);
 
-  // Dynamic set of newRole default when currentUser role changes (Fix master cannot create admin)
-  useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'master') setNewRole('admin');
-      else if (currentUser.role === 'admin') setNewRole('client');
-      else if (currentUser.role === 'client') setNewRole('user');
-    }
-  }, [currentUser]);
-
-  // Automatically select the default parent based on the selected newRole
-  useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role !== 'master') {
-        setSelectedParentId(currentUser.id);
-      } else {
-        if (newRole === 'admin') {
-          setSelectedParentId('master-id');
-        } else if (newRole === 'client') {
-          const firstAdmin = usersList.find(u => u.role === 'admin');
-          setSelectedParentId(firstAdmin ? firstAdmin.id : '');
-        } else if (newRole === 'user') {
-          const firstClient = usersList.find(u => u.role === 'client');
-          setSelectedParentId(firstClient ? firstClient.id : '');
-        }
-      }
-    }
-  }, [newRole, currentUser, usersList]);
-
   // Fetch current user details on token change
   useEffect(() => {
     if (token) {
