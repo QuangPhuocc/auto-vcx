@@ -139,12 +139,6 @@ export default function App() {
 
   // Edit Profile States
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profileName, setProfileName] = useState('');
-  const [profileUsername, setProfileUsername] = useState('');
-  const [profilePhone, setProfilePhone] = useState('');
-  const [profilePassword, setProfilePassword] = useState('');
-  const [profileError, setProfileError] = useState('');
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   // File Upload State for Commissions
   const [commPreviewData, setCommPreviewData] = useState<Record<string, Record<string, any>> | null>(null);
@@ -261,7 +255,6 @@ export default function App() {
     if (!currentUser) {
       setCommissionsData({});
       setUsersList([]);
-      setUserTree([]);
       setBankReferralsData([]);
       return;
     }
@@ -303,21 +296,9 @@ export default function App() {
       .then(data => {
         if (Array.isArray(data)) {
           setUsersList(data);
-          const parentIds = new Set<string>();
-          data.forEach((u: any) => {
-            if (u.role === 'master' || u.role === 'admin' || u.role === 'client') {
-              parentIds.add(u.id);
-            }
-          });
-          setExpandedUserIds(parentIds);
         }
-      });
-
-    fetch('/api/users/tree', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => setUserTree(data));
+      })
+      .catch(err => console.error('Failed to load users', err));
   };
 
   // Helper: Toast alerts
@@ -359,7 +340,6 @@ export default function App() {
     setToken(null);
     setCurrentUser(null);
     setUsersList([]);
-    setUserTree([]);
     setUsernameInput('');
     setPasswordInput('');
     setActiveTab('calc');
@@ -369,55 +349,7 @@ export default function App() {
 
   // Profile Modal Handlers
   const handleOpenProfileModal = () => {
-    if (!currentUser) return;
-    setProfileName(currentUser.name || '');
-    setProfileUsername(currentUser.username || '');
-    setProfilePhone(currentUser.phone || '');
-    setProfilePassword(currentUser.password || '');
-    setProfileError('');
     setShowProfileModal(true);
-  };
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser) return;
-    setProfileError('');
-    setIsUpdatingProfile(true);
-
-    fetch(`/api/users/${currentUser.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        name: profileName,
-        username: profileUsername,
-        phone: profilePhone,
-        password: profilePassword || undefined
-      })
-    })
-    .then(async res => {
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Cập nhật hồ sơ thất bại');
-      
-      setCurrentUser(prev => prev ? {
-        ...prev,
-        name: profileName,
-        username: profileUsername,
-        phone: profilePhone,
-        password: profilePassword || prev.password
-      } : null);
-
-      triggerNotification('success', 'Đã cập nhật thông tin cá nhân thành công!');
-      setShowProfileModal(false);
-    })
-    .catch(err => {
-      setProfileError(err.message);
-    })
-    .finally(() => {
-      setIsUpdatingProfile(false);
-    });
   };
 
   // Commission File Upload Handlers
@@ -2525,21 +2457,18 @@ export default function App() {
       )}
 
       {/* Profile Edit Modal */}
-      <ProfileModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        profileName={profileName}
-        setProfileName={setProfileName}
-        profileUsername={profileUsername}
-        setProfileUsername={setProfileUsername}
-        profilePhone={profilePhone}
-        setProfilePhone={setProfilePhone}
-        profilePassword={profilePassword}
-        setProfilePassword={setProfilePassword}
-        profileError={profileError}
-        isUpdatingProfile={isUpdatingProfile}
-        onSaveProfile={handleSaveProfile}
-      />
+      {showProfileModal && (
+        <ProfileModal
+          currentUser={currentUser}
+          token={token}
+          onClose={() => setShowProfileModal(false)}
+          onSuccess={(updatedUser) => {
+            setCurrentUser(updatedUser);
+            setShowProfileModal(false);
+          }}
+          triggerNotification={triggerNotification}
+        />
+      )}
 
       {/* Main Navbar */}
       <Navbar
